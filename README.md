@@ -20,7 +20,7 @@ The examples use the APARD32690, but you can swap in your own board.
 | Board used | APARD32690 (`apard32690/max32690/m4`, revision D) |
 | MSDK | Install the current release from ADI. No version file is shipped; the one tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
 
-Anything not run by the author is marked **untested**.
+Every command below was run from scratch in a clean shell (venv, `west init`, `west update`, SDK install, build) except those marked **untested**.
 
 ## Prerequisites
 
@@ -43,7 +43,7 @@ sudo apt install --no-install-recommends git cmake ninja-build gperf \
   xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
 ```
 
-Check versions (Zephyr wants CMake 3.20.5+, Python 3.12+, devicetree compiler 1.4.6+):
+Check versions (Zephyr wants CMake 3.28.0+, Python 3.12+, devicetree compiler 1.4.6+):
 
 ```bash
 cmake --version
@@ -94,19 +94,20 @@ west packages pip --install
 
 ### 4. Install the Zephyr SDK
 
-Zephyr v4.5.0 needs Zephyr SDK 1.0 or newer. Older SDKs such as 0.17.x fail at
-the CMake step with `Could not find a configuration file for package "Zephyr-sdk"`.
+Zephyr v4.5.0 needs Zephyr SDK 1.0 or newer (its `cmake/modules/FindHostTools.cmake`
+asks for `Zephyr-sdk 1.0`, and `SDK_VERSION` says 1.0.1). Older SDKs such as 0.17.x
+fail at the CMake step with `Could not find a configuration file for package "Zephyr-sdk"`.
 
-Install only the ARM toolchain, which covers the MAX32690 family and most other ADI Cortex-M parts
+Install only the ARM toolchain, which is enough for most ADI Cortex-M parts
 (about 250 MB instead of several GB):
 
 ```bash
 cd ~/zephyrproject/zephyr
-west sdk install -t arm-zephyr-eabi
+west sdk install --gnu-toolchains arm-zephyr-eabi
 ```
 
-It installs to `~/zephyr-sdk-1.0.1` by default. For other ADI parts with a RISC-V core,
-add `-t riscv64-zephyr-elf` (**untested**).
+With no other options it installs into `~/zephyr-sdk-1.0.1` (per `west sdk install -h`).
+Nothing else needs to be set up: the build finds the SDK on its own.
 
 ### 5. Build hello_world
 
@@ -116,12 +117,15 @@ Find your board name:
 west boards | grep -i apard
 ```
 
-Build for the APARD32690's Cortex-M4 core (`<board>/<soc>/<core>`):
+Build for the APARD32690's Cortex-M4 core (`<board>/<soc>/<core>`). This uses the
+board's default revision (D):
 
 ```bash
 cd ~/zephyrproject/zephyr
 west build -p always -b apard32690/max32690/m4 samples/hello_world
 ```
+
+To pin the revision explicitly, use `apard32690@D/max32690/m4` (it builds the same thing).
 
 You should end with a memory summary (about 19 KB flash for hello_world) and the file below:
 
