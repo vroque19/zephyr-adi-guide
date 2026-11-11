@@ -58,8 +58,8 @@ The MSDK's OpenOCD has two script trees, `Tools/OpenOCD/scripts` and `Tools/Open
 `max32660`, `max32665`, `max32670`, `max32672`, `max32675`, `max32680`, `max32690`, `max78000`, `max78002`) are in both. `max32657`
 and `max32658` are in neither. `scripts/flash-msdk.sh` passes `-s Tools/OpenOCD/scripts`, but OpenOCD also keeps its built-in search path (`bin/../share/openocd/scripts`),
 so `find target/max32620.cfg`, `max32625.cfg` and `max3263x.cfg` still resolve to the second tree when run that way (checked). Only a plain
-`ls .../scripts/target` under-lists the usable names. The script's own existence check, however, looks only in `Tools/OpenOCD/scripts/target`,
-so `TARGET=max32625` is rejected with `error: ... not found` (checked with a dummy hex file) even though OpenOCD could load it.
+`ls .../scripts/target` under-lists the usable names. The script's own existence check accepts a target (or interface) found in either tree, so `TARGET=max32625` reaches OpenOCD
+(checked with a dummy hex file: it ends at `unable to find a matching CMSIS-DAP device`).
 
 ## How the two values are picked
 
@@ -100,7 +100,7 @@ OpenOCD must know that command ([Troubleshooting](troubleshooting.md)).
 
 4. For the MSDK script, `ls ~/MaximSDK/Tools/OpenOCD/scripts/target ~/MaximSDK/Tools/OpenOCD/share/openocd/scripts/target | grep -i max` lists the
    OpenOCD target names, or ask OpenOCD directly: `~/MaximSDK/Tools/OpenOCD/bin/openocd -c 'puts [find target/<chip>.cfg]' -c shutdown`.
-   Names only in the second tree are rejected by the script's own check (see above).
+   The script accepts names from either tree (see above).
 
 Boards with a RISC-V core (for example `max78000fthr/max78000/rv32`) use a different debug interface in that
 file; they were not built or checked here.

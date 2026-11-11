@@ -41,17 +41,21 @@ if [ ! -x "$openocd" ]; then
   exit 1
 fi
 
-if [ ! -f "$scripts_dir/target/$TARGET.cfg" ]; then
-  echo "error: $scripts_dir/target/$TARGET.cfg not found." >&2
+# OpenOCD also searches its built-in path (bin/../share/openocd/scripts) besides -s,
+# so accept a file found in either script tree.
+share_dir="$msdk_dir/Tools/OpenOCD/share/openocd/scripts"
+
+if [ ! -f "$scripts_dir/target/$TARGET.cfg" ] && [ ! -f "$share_dir/target/$TARGET.cfg" ]; then
+  echo "error: target/$TARGET.cfg not found in $scripts_dir or $share_dir." >&2
   echo "Targets that look similar:" >&2
-  { ls "$scripts_dir/target" 2>/dev/null | grep -i max || true; } | sed 's/^/  /' >&2
+  { ls "$scripts_dir/target" "$share_dir/target" 2>/dev/null | grep -i '^max.*\.cfg$' | sort -u || true; } | sed 's/^/  /' >&2
   exit 1
 fi
 
-if [ ! -f "$scripts_dir/interface/$interface.cfg" ]; then
-  echo "error: $scripts_dir/interface/$interface.cfg not found." >&2
+if [ ! -f "$scripts_dir/interface/$interface.cfg" ] && [ ! -f "$share_dir/interface/$interface.cfg" ]; then
+  echo "error: interface/$interface.cfg not found in $scripts_dir or $share_dir." >&2
   echo "Some available interfaces:" >&2
-  { ls "$scripts_dir/interface" 2>/dev/null | head -20 || true; } | sed 's/^/  /' >&2
+  { ls "$scripts_dir/interface" "$share_dir/interface" 2>/dev/null | grep '\.cfg$' | sort -u | head -20 || true; } | sed 's/^/  /' >&2
   exit 1
 fi
 
