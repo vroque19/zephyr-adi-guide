@@ -1,12 +1,52 @@
 # Zephyr on ADI boards
 
 Get from a fresh WSL install to a flashed Analog Devices board running Zephyr.
-This guide follows the official
-[Zephyr Getting Started](https://docs.zephyrproject.org/latest/develop/getting_started/index.html)
-and adds the parts it leaves out for ADI boards (flashing with OpenOCD).
 
+This guide is for people who run Zephyr on ADI (MAX32xxx / MAX78xxx) boards from Windows with WSL.
+It follows the official
+[Zephyr Getting Started](https://docs.zephyrproject.org/latest/develop/getting_started/index.html)
+and adds the parts it leaves out for ADI boards: sharing the USB debugger with WSL and flashing with OpenOCD.
 It assumes you already have WSL with Ubuntu. Installing WSL is out of scope.
 The examples use the APARD32690, but you can swap in your own board.
+
+**Status:** build steps verified on Ubuntu 24.04 WSL. Flashing steps are not yet verified on a board:
+they are marked **untested**. Anything that needs a board, `sudo` or an Administrator shell is untested.
+
+## Quick start
+
+The short path. Each step links to the full section.
+
+1. Install host packages and the MSDK: [Prerequisites](#prerequisites).
+2. Set up Zephyr v4.5.0 and build `hello_world`:
+
+   ```bash
+   python3 -m venv ~/zephyrproject/.venv && source ~/zephyrproject/.venv/bin/activate
+   pip install west
+   west init --mr v4.5.0 ~/zephyrproject && cd ~/zephyrproject && west update
+   west zephyr-export && west packages pip --install
+   cd zephyr && west sdk install --gnu-toolchains arm-zephyr-eabi
+   west build -p always -b apard32690/max32690/m4 samples/hello_world
+   ```
+
+3. Attach the board to WSL with usbipd-win: [Connect your board to WSL](#connect-your-board-to-wsl).
+4. Build ADI's OpenOCD fork: [Build ADI OpenOCD](#build-adi-openocd).
+5. Flash: [Flash](#flash).
+
+Something broke? See [Troubleshooting](#troubleshooting).
+
+## Contents
+
+- [Tested with](#tested-with)
+- [Which OpenOCD do I need?](#which-openocd-do-i-need)
+- [Prerequisites](#prerequisites)
+- [Zephyr setup](#zephyr-setup)
+- [Connect your board to WSL](#connect-your-board-to-wsl)
+- [Build ADI OpenOCD](#build-adi-openocd)
+- [Flash](#flash)
+- [Using a different board](#using-a-different-board)
+- [Troubleshooting](#troubleshooting)
+- [Contributing and feedback](#contributing-and-feedback)
+- [License](#license)
 
 ## Tested with
 
@@ -17,11 +57,21 @@ The examples use the APARD32690, but you can swap in your own board.
 | Zephyr SDK | 1.0.1 (minimal SDK, host tools and `arm-zephyr-eabi` toolchain only) |
 | west | 1.5.0 |
 | Python | 3.12.3 |
-| Board used | APARD32690 (`apard32690/max32690/m4`, revision D) |
+| Board used | APARD32690 (`apard32690/max32690/m4`, revision D). Also built (not flashed): `max78000evkit/max78000/m4`, `max32655evkit/max32655/m4` |
 | ADI OpenOCD fork | tag `0.12.0-1.4.0` (commit `ad75bfb79b509634b92646b9e65b958f3ea1d8bf`), built and installed to a scratch prefix; `openocd --version` printed `Open On-Chip Debugger (PKGVERSION)  OpenOCD 0.12.0 (<build date>)` |
-| MSDK | Install the current release from ADI. No version file is shipped; the one tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
+| MSDK | Install the current release from ADI. No version file is shipped |
+| MSDK toolchain / OpenOCD | The MSDK tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
 
 The venv, `west init`, `west update`, pip install, `west zephyr-export` and the build were run from scratch in a clean shell. The SDK install was run once (a real download, with no 1.0.x SDK present) and re-run later as a no-op. Anything marked **untested** was not run.
+
+## Which OpenOCD do I need?
+
+Short answer: the main path uses [ADI's OpenOCD fork](#build-adi-openocd) with `west flash`.
+The OpenOCD in the Zephyr SDK lacks target files for several ADI chips, and the MSDK's OpenOCD lacks the `allow_low_pwr_dbg` command that `west flash` sends.
+
+- Which chips each OpenOCD supports: [coverage matrix](docs/boards.md#openocd-target-file-coverage).
+- Using the MSDK's OpenOCD instead: [docs/alternative-msdk.md](docs/alternative-msdk.md).
+- `west flash` errors: [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Prerequisites
 
@@ -35,7 +85,8 @@ dpkg -s git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget \
   g++-multilib libsdl2-dev libmagic1t64 2>&1 | grep "not installed"
 ```
 
-No output means you are set. Otherwise install them (**untested**, needs `sudo`):
+No output means you are set. (On Ubuntu 24.04 the package `libmagic1` is named `libmagic1t64`, so the check lists it that way.)
+Otherwise install them (**untested**, needs `sudo`):
 
 ```bash
 sudo apt update
@@ -44,7 +95,10 @@ sudo apt install --no-install-recommends git cmake ninja-build gperf \
   xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1
 ```
 
-Check versions (Zephyr wants CMake 3.28.0+, Python 3.12+, devicetree compiler 1.4.6+):
+On ARM64 WSL, omit `gcc-multilib` and `g++-multilib` (per upstream Zephyr docs).
+
+Check versions (Zephyr wants CMake 3.28.0+, Python 3.12+, devicetree compiler 1.4.6+;
+see the [Zephyr Getting Started](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) page for the current minimums):
 
 ```bash
 cmake --version
@@ -147,10 +201,10 @@ all **untested** here (the usbipd flags were checked against `usbipd --help` of 
 In PowerShell (**untested**):
 
 ```powershell
-winget install usbipd
+winget install --interactive --exact dorssel.usbipd-win
 ```
 
-Then close and reopen PowerShell so `usbipd` is on your `PATH`.
+The install may reboot the PC, so save your work first. Then close and reopen PowerShell so `usbipd` is on your `PATH`.
 
 ### 2. Find your board (Windows)
 
@@ -181,6 +235,8 @@ usbipd attach --wsl --busid <BUSID>
 ```
 
 `--wsl` uses your default WSL distribution. To pick one, add its name: `--wsl Ubuntu-24.04`.
+To list your distribution names, run `wsl -l -q`.
+Keep a WSL terminal open while the device is attached.
 `usbipd list` now shows `Attached`.
 
 The attachment is lost when you unplug the board, reboot, or restart WSL, so repeat the `attach` command each time.
@@ -198,7 +254,8 @@ Do this before flashing. An unattached board is the usual reason `west flash` fa
 lsusb
 ```
 
-You should see a new line for the debugger (the exact text depends on your board), for example:
+You should see a new line for the debugger (the exact text depends on your board). This example line is
+illustrative, not captured from a real board. Match on the VID:PID `0d28:0204` for DAPLink-style probes only if that is what your board shows:
 
 ```text
 Bus 001 Device 002: ID 0d28:0204 ARM DAPLink CMSIS-DAP
@@ -207,7 +264,7 @@ Bus 001 Device 002: ID 0d28:0204 ARM DAPLink CMSIS-DAP
 The serial port normally shows up as `/dev/ttyACM0` (sometimes `ttyUSB0`):
 
 ```bash
-ls /dev/ttyACM* /dev/ttyUSB*
+ls /dev/tty{ACM,USB}* 2>/dev/null
 dmesg | grep -i tty
 ```
 
@@ -215,7 +272,8 @@ If `dmesg` prints a permission error, use `sudo dmesg | grep -i tty`.
 
 If you see nothing new, the board is not attached. Go back to `usbipd list` on Windows,
 check that `STATE` says `Attached`, and run the `attach` command again.
-With no USB device attached at all, `lsusb` prints nothing and `ls` says `No such file or directory`.
+With no USB device attached at all, `lsusb` prints nothing and the `ls` line prints nothing either.
+If `lsusb` is still empty after `attach`, run `wsl --shutdown` and then `wsl --update` in PowerShell, reopen WSL and attach again.
 
 ## Build ADI OpenOCD
 
@@ -264,14 +322,15 @@ git rev-parse HEAD
 ```
 
 `git rev-parse HEAD` should print `ad75bfb79b509634b92646b9e65b958f3ea1d8bf`.
-Then build. Pick the install prefix with `--prefix`:
+Then pick an install prefix and build. Set `PREFIX` first and keep using it in this section:
 
 - `/usr/local` (the default of `configure`, and the default of the flash script) needs `sudo` for the install step.
 - `$HOME/.local` needs no `sudo`.
 
 ```bash
+PREFIX=/usr/local   # or: PREFIX="$HOME/.local"
 ./bootstrap
-./configure --prefix=/usr/local
+./configure --prefix="$PREFIX"
 make -j"$(nproc)"
 ```
 
@@ -282,26 +341,21 @@ as `yes (auto)`. If one says `no`, a library from the list above is missing.
 
 ### 3. Install
 
-System-wide (**untested**, needs `sudo`):
+With the same `PREFIX` set. `sudo` is needed only for `/usr/local` (**untested**); `make install` into a scratch prefix was run here.
 
 ```bash
-sudo make install
+sudo make install   # PREFIX=/usr/local
+make install        # PREFIX="$HOME/.local"
 ```
 
-Or user-local, with no `sudo` (configure with `--prefix=$HOME/.local` above instead of `/usr/local`; `make install` into a scratch prefix was run here):
-
-```bash
-make install
-```
-
-The install puts the binary in `<prefix>/bin/openocd` and the board files in `<prefix>/share/openocd/scripts`.
+The install puts the binary in `$PREFIX/bin/openocd` and the board files in `$PREFIX/share/openocd/scripts`.
 Check that the boards you need are there:
 
 ```bash
-ls <prefix>/share/openocd/scripts/target/max32690.cfg \
-   <prefix>/share/openocd/scripts/target/max32655.cfg \
-   <prefix>/share/openocd/scripts/target/max78000.cfg \
-   <prefix>/share/openocd/scripts/interface/cmsis-dap.cfg
+ls "$PREFIX/share/openocd/scripts/target/max32690.cfg" \
+   "$PREFIX/share/openocd/scripts/target/max32655.cfg" \
+   "$PREFIX/share/openocd/scripts/target/max78000.cfg" \
+   "$PREFIX/share/openocd/scripts/interface/cmsis-dap.cfg"
 ```
 
 ### 4. Check which OpenOCD runs
@@ -311,12 +365,12 @@ Another `openocd` earlier on your `PATH` (for example the MSDK's `~/MaximSDK/Too
 ```bash
 which -a openocd
 openocd --version
-<prefix>/bin/openocd --version
+"$PREFIX/bin/openocd" --version
 ```
 
 The fork prints `Open On-Chip Debugger (PKGVERSION)  OpenOCD 0.12.0 (<build date>)`. Others look different:
 the MSDK's says `(Analog Devices 0.12.0-1.0.0-7)` and the Zephyr SDK's says `0.12.0-01050-g91bd278a5`.
-If `openocd` is not the fork, either call `<prefix>/bin/openocd` by its full path or put `<prefix>/bin` first in `PATH`.
+If `openocd` is not the fork, either call `"$PREFIX/bin/openocd"` by its full path or put `$PREFIX/bin` first in `PATH`.
 `scripts/flash-adi-fork.sh` below always uses the full path, so it does not depend on `PATH`.
 
 ## Flash
@@ -335,13 +389,13 @@ Build `hello_world` as in [Build hello_world](#5-build-hello_world), attach the 
 west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts" "$@"
 ```
 
-`OPENOCD_PREFIX` defaults to `/usr/local`. If you installed to `$HOME/.local`:
+`OPENOCD_PREFIX` defaults to `/usr/local` (it is the same value as `PREFIX` above). If you installed to `$HOME/.local`:
 
 ```bash
 OPENOCD_PREFIX=$HOME/.local ~/path/to/zephyr-adi-guide/scripts/flash-adi-fork.sh
 ```
 
-Extra arguments go straight to `west flash`. If `<prefix>/bin/openocd` is missing or not executable,
+Extra arguments go straight to `west flash`. If `$OPENOCD_PREFIX/bin/openocd` is missing or not executable,
 the script prints a message on stderr and exits with status 1.
 
 Zephyr's board file makes OpenOCD run `init`, `targets`, `reset init`, `flash write_image erase ...zephyr.hex`,
@@ -366,3 +420,12 @@ Change the Zephyr board name (`west build -b ...`). For `west flash`, the runner
 See [docs/troubleshooting.md](docs/troubleshooting.md) for: `west flash` fails with `FATAL ERROR: command exited with status 1`;
 `Can't find target/<chip>.cfg`; `Error: unable to find a matching CMSIS-DAP device`;
 `libncurses.so.5: cannot open shared object file`; and how to check whether your OpenOCD is new enough.
+
+## Contributing and feedback
+
+Issues are welcome. If you flash a board, please tell us which board, which OpenOCD and what happened,
+so the **untested** labels can be replaced with real results. Corrections to any step are welcome too.
+
+## License
+
+[MIT](LICENSE).

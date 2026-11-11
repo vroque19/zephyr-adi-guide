@@ -47,7 +47,8 @@ accepts a target or interface found in either tree, so `max32620`, `max32625` an
 work (see [boards](boards.md#openocd-target-file-coverage)). List the names from both trees:
 
 ```bash
-ls ~/MaximSDK/Tools/OpenOCD/scripts/target ~/MaximSDK/Tools/OpenOCD/share/openocd/scripts/target | grep -i max
+ls -1 ~/MaximSDK/Tools/OpenOCD/scripts/target | grep '^max.*\.cfg$'
+ls -1 ~/MaximSDK/Tools/OpenOCD/share/openocd/scripts/target | grep '^max.*\.cfg$'
 ```
 
 Optional settings:

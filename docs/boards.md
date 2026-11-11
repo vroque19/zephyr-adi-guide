@@ -1,14 +1,14 @@
 # Using a different board
 
-The [main guide](../README.md) uses the APARD32690. To use another ADI board you change two values:
+The [main guide](../README.md) uses the APARD32690. To use another ADI board you change the Zephyr board name. The MSDK script needs one more value:
 
 | Value | Used by | Example |
 | --- | --- | --- |
 | Zephyr board name | `west build -b <board>` | `apard32690/max32690/m4` |
 | OpenOCD target file (no `.cfg`) | `TARGET=` of [`scripts/flash-msdk.sh`](alternative-msdk.md) | `max32690` |
 
-`TARGET=` is only for the MSDK script. For `west flash` (the ADI fork path) you only change the board name:
-the runner derives the target file from the Zephyr board itself (see below).
+`TARGET=` is only for the MSDK script. For `west flash` (the ADI fork path) you only change the board name
+(`west build -b`): the runner derives the target file from the Zephyr board itself (see below).
 
 ## Boards checked
 
@@ -61,7 +61,7 @@ so `find target/max32620.cfg`, `max32625.cfg` and `max3263x.cfg` still resolve t
 `ls .../scripts/target` under-lists the usable names. The script's own existence check accepts a target (or interface) found in either tree, so `TARGET=max32625` reaches OpenOCD
 (checked with a dummy hex file: it ends at `unable to find a matching CMSIS-DAP device`).
 
-## How the two values are picked
+## How the values are picked
 
 Build for the other board by changing the board name (list them with
 `west boards --format "{name}"`; a board with several cores shows them as `<board>/<soc>/<core>`):
@@ -98,8 +98,14 @@ OpenOCD must know that command ([Troubleshooting](troubleshooting.md)).
    openocd -s <scripts> -c 'puts [find target/<chip>.cfg]' -c shutdown
    ```
 
-4. For the MSDK script, `ls ~/MaximSDK/Tools/OpenOCD/scripts/target ~/MaximSDK/Tools/OpenOCD/share/openocd/scripts/target | grep -i max` lists the
-   OpenOCD target names, or ask OpenOCD directly: `~/MaximSDK/Tools/OpenOCD/bin/openocd -c 'puts [find target/<chip>.cfg]' -c shutdown`.
+4. For the MSDK script, list the OpenOCD target names of each tree:
+
+   ```bash
+   ls -1 ~/MaximSDK/Tools/OpenOCD/scripts/target | grep '^max.*\.cfg$'
+   ls -1 ~/MaximSDK/Tools/OpenOCD/share/openocd/scripts/target | grep '^max.*\.cfg$'
+   ```
+
+   Or ask OpenOCD directly: `~/MaximSDK/Tools/OpenOCD/bin/openocd -c 'puts [find target/<chip>.cfg]' -c shutdown`.
    The script accepts names from either tree (see above).
 
 Boards with a RISC-V core (for example `max78000fthr/max78000/rv32`) use a different debug interface in that
