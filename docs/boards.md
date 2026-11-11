@@ -26,7 +26,7 @@ for any row, so the last column is "no" for all of them.
 Which `target/<chip>.cfg` each OpenOCD has. Checked on one machine, no board attached, with
 `openocd -s <scripts> -c 'puts [find target/<chip>.cfg]' -c shutdown` (Y = found, N = `Can't find target/<chip>.cfg`).
 The fork column was measured on a fork build at `/usr/local`, not necessarily tag `0.12.0-1.4.0` from the README. The scratch build of
-tag `0.12.0-1.4.0` was separately checked (Task 4) for those three files only: `max32690.cfg`, `max32655.cfg` and `max78000.cfg` are present.
+tag `0.12.0-1.4.0` was separately checked when building the fork for those three files only: `max32690.cfg`, `max32655.cfg` and `max78000.cfg` are present.
 
 | Target cfg | MSDK (`Analog Devices 0.12.0-1.0.0-7`, 2023-09-27) | ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11, no tag in its version string) | Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | Zephyr SDK 0.17.4 (`0.12.0-01018-gb89d626c6`) |
 | --- | --- | --- | --- | --- |
@@ -56,7 +56,10 @@ for `max32657evkit` and `max32658evkit`; `max78000.cfg` for `max78000evkit`/`fth
 The MSDK's OpenOCD has two script trees, `Tools/OpenOCD/scripts` and `Tools/OpenOCD/share/openocd/scripts`. By `ls`, `max32620`,
 `max32625` and `max3263x` exist only in the second (and `find` resolves them); the other MSDK cfgs in the matrix (`max32650`, `max32655`,
 `max32660`, `max32665`, `max32670`, `max32672`, `max32675`, `max32680`, `max32690`, `max78000`, `max78002`) are in both. `max32657`
-and `max32658` are in neither. `scripts/flash-msdk.sh` passes `-s Tools/OpenOCD/scripts`, so it sees only the first tree.
+and `max32658` are in neither. `scripts/flash-msdk.sh` passes `-s Tools/OpenOCD/scripts`, but OpenOCD also keeps its built-in search path (`bin/../share/openocd/scripts`),
+so `find target/max32620.cfg`, `max32625.cfg` and `max3263x.cfg` still resolve to the second tree when run that way (checked). Only a plain
+`ls .../scripts/target` under-lists the usable names. The script's own existence check, however, looks only in `Tools/OpenOCD/scripts/target`,
+so `TARGET=max32625` is rejected with `error: ... not found` (checked with a dummy hex file) even though OpenOCD could load it.
 
 ## How the two values are picked
 
@@ -95,7 +98,9 @@ OpenOCD must know that command ([Troubleshooting](troubleshooting.md)).
    openocd -s <scripts> -c 'puts [find target/<chip>.cfg]' -c shutdown
    ```
 
-4. For the MSDK script, `ls ~/MaximSDK/Tools/OpenOCD/scripts/target | grep -i max` lists the names you can use as `TARGET=`.
+4. For the MSDK script, `ls ~/MaximSDK/Tools/OpenOCD/scripts/target ~/MaximSDK/Tools/OpenOCD/share/openocd/scripts/target | grep -i max` lists the
+   OpenOCD target names, or ask OpenOCD directly: `~/MaximSDK/Tools/OpenOCD/bin/openocd -c 'puts [find target/<chip>.cfg]' -c shutdown`.
+   Names only in the second tree are rejected by the script's own check (see above).
 
 Boards with a RISC-V core (for example `max78000fthr/max78000/rv32`) use a different debug interface in that
 file; they were not built or checked here.

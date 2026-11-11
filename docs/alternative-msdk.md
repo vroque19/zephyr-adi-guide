@@ -42,8 +42,9 @@ TARGET=max32690 ~/path/to/zephyr-adi-guide/scripts/flash-msdk.sh
 TARGET=max32655 ~/path/to/zephyr-adi-guide/scripts/flash-msdk.sh
 ```
 
-The MSDK also has `Tools/OpenOCD/share/openocd/scripts`; the script uses only `Tools/OpenOCD/scripts`, which lacks `max32620`, `max32625` and `max3263x`
-(see [boards](boards.md#openocd-target-file-coverage)). List the targets the script can use:
+The MSDK also has `Tools/OpenOCD/share/openocd/scripts`. OpenOCD finds files there even with `-s Tools/OpenOCD/scripts`, but the script's own check
+only looks in `Tools/OpenOCD/scripts/target`, so `max32620`, `max32625` and `max3263x` (which exist only in the second tree) are rejected
+by the script (see [boards](boards.md#openocd-target-file-coverage)). List the names the script accepts:
 
 ```bash
 ls ~/MaximSDK/Tools/OpenOCD/scripts/target | grep -i max
@@ -88,7 +89,7 @@ The MSDK's prints `Open On-Chip Debugger (Analog Devices 0.12.0-1.0.0-7)  OpenOC
 `~/MaximSDK/Tools/OpenOCD/openocd` is a symlink to `~/MaximSDK/Tools/OpenOCD/bin/openocd` (checked with `ls -l`), so both are the same binary.
 The script uses the `bin/` path.
 
-The Zephyr SDK 0.17.4 `openocd` has no `target/max32690.cfg` (found in an independent check, not reproduced in this task), so
+The Zephyr SDK 0.17.4 `openocd` has no `target/max32690.cfg` (checked on one machine; not re-run for this page), so
 `Can't find target/max32690.cfg` is the error you get if that binary is the one that runs. `which -a openocd` only shows
 which binaries your `PATH` finds and in what order. The notes this guide started from fixed that error by deleting the system
 `openocd` and its scripts and putting the MSDK's first on `PATH`. That is not needed with `scripts/flash-msdk.sh`.

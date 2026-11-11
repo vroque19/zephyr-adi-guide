@@ -40,9 +40,19 @@ Then match the message:
 
 1. `Can't find target/<chip>.cfg`: this OpenOCD has no file for your chip.
    See [`Can't find target/<chip>.cfg`](#cant-find-targetchipcfg). Zephyr SDK 1.0.1's OpenOCD lacks the file for `max32650`,
-   `max32655`, `max32657`, `max32658`, `max32665`, `max78000` and `max78002` (checked, no board); it has `max32690`. Affected Zephyr boards:
-   `max32650evkit`, `max32650fthr`, `max32651evkit` and `ad_swiot1l_sl` (all use `max32650.cfg`), `max32655evkit`, `max32655fthr`,
-   `max32657evkit`, `max32658evkit`, `max32666evkit` and `max32666fthr` (use `max32665.cfg`), `max78000evkit`, `max78000fthr`, `max78002evkit`.
+   `max32655`, `max32657`, `max32658`, `max32665`, `max78000` and `max78002` (checked, no board); it has `max32690`.
+   Affected Zephyr boards, by the cfg each one needs:
+
+   | Target cfg | Zephyr boards |
+   | --- | --- |
+   | `max32650.cfg` | `max32650evkit`, `max32650fthr`, `max32651evkit`, `ad_swiot1l_sl` |
+   | `max32655.cfg` | `max32655evkit`, `max32655fthr` |
+   | `max32657.cfg` | `max32657evkit` |
+   | `max32658.cfg` | `max32658evkit` |
+   | `max32665.cfg` | `max32666evkit`, `max32666fthr` |
+   | `max78000.cfg` | `max78000evkit`, `max78000fthr` |
+   | `max78002.cfg` | `max78002evkit` |
+
 2. `Error: unable to find a matching CMSIS-DAP device`: the cfg exists and the next suspect is a board not attached to WSL.
    See [the next entry](#error-unable-to-find-a-matching-cmsis-dap-device) and the
    [usbipd section](../README.md#connect-your-board-to-wsl).
