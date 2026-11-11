@@ -42,7 +42,8 @@ TARGET=max32690 ~/path/to/zephyr-adi-guide/scripts/flash-msdk.sh
 TARGET=max32655 ~/path/to/zephyr-adi-guide/scripts/flash-msdk.sh
 ```
 
-List the targets your MSDK knows:
+The MSDK also has `Tools/OpenOCD/share/openocd/scripts`; the script uses only `Tools/OpenOCD/scripts`, which lacks `max32620`, `max32625` and `max3263x`
+(see [boards](boards.md#openocd-target-file-coverage)). List the targets the script can use:
 
 ```bash
 ls ~/MaximSDK/Tools/OpenOCD/scripts/target | grep -i max

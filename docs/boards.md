@@ -25,14 +25,16 @@ for any row, so the last column is "no" for all of them.
 
 Which `target/<chip>.cfg` each OpenOCD has. Checked on one machine, no board attached, with
 `openocd -s <scripts> -c 'puts [find target/<chip>.cfg]' -c shutdown` (Y = found, N = `Can't find target/<chip>.cfg`).
+The fork column was measured on a fork build at `/usr/local`, not necessarily tag `0.12.0-1.4.0` from the README. The scratch build of
+tag `0.12.0-1.4.0` was separately checked (Task 4) for those three files only: `max32690.cfg`, `max32655.cfg` and `max78000.cfg` are present.
 
-| Target cfg | MSDK (`Analog Devices 0.12.0-1.0.0-7`, 2023-09-27) | ADI fork (tag `0.12.0-1.4.0` build, 2026-03-11) | Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | Zephyr SDK 0.17.4 (`0.12.0-01018-gb89d626c6`) |
+| Target cfg | MSDK (`Analog Devices 0.12.0-1.0.0-7`, 2023-09-27) | ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11, no tag in its version string) | Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | Zephyr SDK 0.17.4 (`0.12.0-01018-gb89d626c6`) |
 | --- | --- | --- | --- | --- |
 | `max32620`, `max32625` | Y | Y | Y | Y |
 | `max32650` | Y | Y | N | N |
 | `max32655` | Y | Y | N | N |
 | `max32657`, `max32658` | N | Y | N | N |
-| `max32660`, `max32670`, `max32672`, `max32675`, `max32680` | Y | Y | Y | N |
+| `max32660`, `max32662`, `max32670`, `max32672`, `max32675`, `max32680` | Y | Y | Y | N |
 | `max32665` | Y | Y | N | N |
 | `max32690` | Y | Y | Y | N |
 | `max78000` | Y | Y | N | N |
@@ -42,11 +44,19 @@ No `max32666.cfg` exists in any of them (Zephyr maps MAX32666 boards to `max3266
 Zephyr SDK 1.0.1 has only the `max32620`, `max32625`, `max3263x`, `max32660`, `max32662`, `max32670`, `max32672`, `max32675`,
 `max32680` and `max32690` files (plus `max32xxx_common.cfg`).
 
-So for boards whose file your SDK's OpenOCD lacks (`max32655`, `max78000`, `max78002`, `max32650`, `max32665`, ...)
-`west flash` with that OpenOCD cannot load the target: use the [ADI fork](../README.md#build-adi-openocd)
-or the [MSDK alternative](alternative-msdk.md). For the `max32690` family with SDK 1.0.1 the file and the
+So for boards whose file your SDK's OpenOCD lacks (`max32650`, `max32655`, `max32657`, `max32658`, `max32665`, `max78000`, `max78002`; no board was attached)
+`west flash` with that OpenOCD cannot load the target (the same shape as the failure in [Troubleshooting](troubleshooting.md); to confirm your case, read the log). Use the [ADI fork](../README.md#build-adi-openocd)
+or the [MSDK alternative](alternative-msdk.md) (the MSDK also lacks `max32657` and `max32658`: the fork only). For the `max32690` family with SDK 1.0.1 the file and the
 `allow_low_pwr_dbg` command are both present, so the need for the fork was not shown (**untested with a board**).
-See also [Troubleshooting](troubleshooting.md).
+Zephyr boards by cfg (from the `select SOC_...` lines in `<ZEPHYR_DIR>/boards/adi/*/Kconfig.*` and the shared
+`openocd-adi-max32.boards.cmake`): `max32650.cfg` for `max32650evkit`, `max32650fthr`, `max32651evkit` and `ad_swiot1l_sl`;
+`max32665.cfg` for `max32666evkit` and `max32666fthr`; `max32655.cfg` for `max32655evkit`/`fthr`; `max32657.cfg` and `max32658.cfg`
+for `max32657evkit` and `max32658evkit`; `max78000.cfg` for `max78000evkit`/`fthr`; `max78002.cfg` for `max78002evkit`.
+
+The MSDK's OpenOCD has two script trees, `Tools/OpenOCD/scripts` and `Tools/OpenOCD/share/openocd/scripts`. By `ls`, `max32620`,
+`max32625` and `max3263x` exist only in the second (and `find` resolves them); the other MSDK cfgs in the matrix (`max32650`, `max32655`,
+`max32660`, `max32665`, `max32670`, `max32672`, `max32675`, `max32680`, `max32690`, `max78000`, `max78002`) are in both. `max32657`
+and `max32658` are in neither. `scripts/flash-msdk.sh` passes `-s Tools/OpenOCD/scripts`, so it sees only the first tree.
 
 ## How the two values are picked
 
