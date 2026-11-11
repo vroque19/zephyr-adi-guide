@@ -74,6 +74,10 @@ What ran without a board attached:
 **Untested with a board:** behavior with a board attached, and whether `max32690` boards flash with Zephyr SDK 1.0.1's OpenOCD,
 were not tried.
 
+In the author's experience plain `west flash` with the Zephyr SDK's own OpenOCD did not work for these boards; the fork is the supported path in this guide.
+This guide did not verify that with a board; the measured facts are above and in the [coverage matrix](boards.md#openocd-target-file-coverage).
+If the wrong OpenOCD runs, see [Already have an OpenOCD installed?](../README.md#already-have-an-openocd-installed-make-sure-the-right-one-runs).
+
 Fix: for boards whose cfg your SDK's OpenOCD lacks,
 
 - Main path: build and use the [ADI OpenOCD fork](../README.md#build-adi-openocd) and [flash with it](../README.md#flash).
@@ -91,7 +95,7 @@ Fix: use an OpenOCD that has the file.
 
 - Zephyr v4.5.0 needs Zephyr SDK 1.0 or newer anyway ([Install the Zephyr SDK](../README.md#4-install-the-zephyr-sdk)).
 - For boards the SDK's OpenOCD does not have, use the [ADI fork](../README.md#build-adi-openocd) or the [MSDK](alternative-msdk.md).
-- Make sure the OpenOCD you think is running is the one that runs: `which -a openocd` (see [Check which OpenOCD runs](../README.md#4-check-which-openocd-runs)).
+- Make sure the OpenOCD you think is running is the one that runs: `which -a openocd` (see [Check which OpenOCD runs](../README.md#4-check-which-openocd-runs) and [Already have an OpenOCD installed?](../README.md#already-have-an-openocd-installed-make-sure-the-right-one-runs)).
 
 ## `Error: unable to find a matching CMSIS-DAP device`
 
@@ -127,10 +131,16 @@ Example line for a CMSIS-DAP/DAPLink probe with VID `0d28` and PID `0204`, in th
 ATTRS{idVendor}=="0d28", ATTRS{idProduct}=="0204", MODE="660", GROUP="plugdev", TAG+="uaccess"
 ```
 
-Install and reload the rules (**untested**, needs `sudo`). Put the example line in a copy of the file first if you need it:
+Install and reload the rules (**untested**, needs `sudo`). Copy the file first:
 
 ```bash
 sudo cp ~/adi-openocd/contrib/60-openocd.rules /etc/udev/rules.d/
+```
+
+If your probe is not listed, now edit the copy in `/etc/udev/rules.d/` (for example `sudo nano /etc/udev/rules.d/60-openocd.rules`) and add the example line
+before the `LABEL="openocd_rules_end"` line at the end of the file. Then reload:
+
+```bash
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
@@ -150,7 +160,7 @@ Warning: if the build is stale, `west flash` may rebuild as root and leave root-
 
 ## `libncurses.so.5: cannot open shared object file` (or `libtinfo.so.5`)
 
-Ubuntu 24.04 dropped `libncurses5`. Only the MSDK's `arm-none-eabi-gdb` needs it.
+Ubuntu 24.04 dropped `libncurses5`. Only the MSDK's `arm-none-eabi-gdb` needs it (this entry is about the MSDK gdb, not about flashing).
 Zephyr's own gdb (`arm-zephyr-eabi-gdb`) does not, so you can skip this if you do not use MSDK gdb.
 
 The fix is to install the Ubuntu 22.04 packages (**untested**, needs `sudo`):

@@ -13,7 +13,9 @@ If neither applies, stay with the fork.
 ## Prerequisites
 
 Everything in the [README](../README.md) up to and including [Build hello_world](../README.md#5-build-hello_world),
-plus the [MSDK](../README.md#2-maxim-microcontrollers-sdk-msdk). Check it:
+plus the Maxim Microcontrollers SDK (MSDK). The MSDK is needed only for this alternative path and for the MSDK's `arm-none-eabi-gdb`.
+Install it from the [MSDK installation instructions](https://analogdevicesinc.github.io/msdk/USERGUIDE/#installation),
+accepting the default location (`~/MaximSDK`). The MSDK tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7". Check it:
 
 ```bash
 ls ~/MaximSDK/Tools/OpenOCD/bin/openocd

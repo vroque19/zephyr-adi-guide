@@ -17,7 +17,7 @@ described as "ran without a board". No board has been flashed with this guide ye
 
 The short path. Steps 3, 4 and 5 are required: step 4 builds the OpenOCD that step 5 uses.
 
-1. Get a debug probe if your board needs one, then install host packages and the MSDK: [Prerequisites](#prerequisites). **(untested: needs `sudo`)**
+1. Get a debug probe if your board needs one, then install the host packages: [Prerequisites](#prerequisites). **(untested: needs `sudo`)**
    Hardware: see [Hardware you need](#hardware-you-need).
 2. Set up Zephyr v4.5.0 and build `hello_world`:
 
@@ -70,8 +70,8 @@ Something broke? See [Troubleshooting](#troubleshooting).
 | Python | 3.12.3 |
 | Board built for | APARD32690 (`apard32690/max32690/m4`, revision D). Also built (not flashed): `max78000evkit/max78000/m4`, `max32655evkit/max32655/m4`, `max78000fthr/max78000/m4` |
 | ADI OpenOCD fork | tag `0.12.0-1.4.0` (commit `ad75bfb79b509634b92646b9e65b958f3ea1d8bf`), built and installed to a temporary prefix (a throwaway install folder); `openocd --version` printed `Open On-Chip Debugger (PKGVERSION)  OpenOCD 0.12.0 (<build date>)`. The text `(PKGVERSION)` is printed literally by the fork build |
-| MSDK | Install the current release from ADI. No version file is shipped |
-| MSDK toolchain / OpenOCD | The MSDK tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
+| MSDK (alternative path only) | Install the current release from ADI. No version file is shipped |
+| MSDK toolchain / OpenOCD (alternative path only) | The MSDK tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
 
 The venv, `west init`, `west update`, pip install, `west zephyr-export` and the build were run from scratch in a clean shell. The SDK install was run once (a real download, with no 1.0.x SDK present) and re-run later as a no-op. Anything marked **untested** was not run.
 
@@ -135,16 +135,6 @@ see the [Zephyr Getting Started](https://docs.zephyrproject.org/latest/develop/g
 cmake --version
 python3 --version
 dtc --version
-```
-
-### 2. Maxim Microcontrollers SDK (MSDK)
-
-You need the MSDK later for its OpenOCD binaries and ADI tooling. Install it from
-the [MSDK installation instructions](https://analogdevicesinc.github.io/msdk/USERGUIDE/#installation),
-accepting the default location (`~/MaximSDK`). The main path flashes with the ADI fork; the MSDK's own OpenOCD is used by the [alternative path](docs/alternative-msdk.md). Then check it:
-
-```bash
-ls ~/MaximSDK/Tools/OpenOCD/bin/openocd
 ```
 
 ## Zephyr setup
@@ -318,8 +308,7 @@ If `lsusb` is still empty after `attach`, run `wsl --shutdown` and then `wsl --u
 
 The OpenOCD that ships with the Zephyr SDK 1.0.1 has no target file for some ADI boards (`max32650`, `max32655`,
 `max32657`, `max32658`, `max32665`, `max78000`, `max78002`; see the [coverage matrix](docs/boards.md#openocd-target-file-coverage) and the [affected boards table](docs/troubleshooting.md#west-flash-fails-with-fatal-error-command-exited-with-status-1)).
-For `max32690` boards the file and the `allow_low_pwr_dbg` command are present there, so the fork was not shown to be needed
-(**untested with a board**). ADI keeps its own fork with the board and flash support:
+For `max32690` boards the file and the `allow_low_pwr_dbg` command are present there (**untested with a board**). ADI keeps its own fork with the board and flash support:
 [analogdevicesinc/openocd](https://github.com/analogdevicesinc/openocd). This guide builds that fork
 and points `west flash` at it.
 
@@ -424,6 +413,48 @@ the MSDK's says `(Analog Devices 0.12.0-1.0.0-7)` and the Zephyr SDK's says `0.1
 If `openocd` is not the fork, either call `"$OPENOCD_PREFIX/bin/openocd"` by its full path or put `$OPENOCD_PREFIX/bin` first in `PATH`.
 `scripts/flash-adi-fork.sh` below always uses the full path, so it does not depend on `PATH`.
 
+### Already have an OpenOCD installed? Make sure the right one runs
+
+An older OpenOCD earlier on your `PATH` is the usual reason the wrong one runs instead of the fork (`which -a` shows the `PATH` order).
+Find every installation:
+
+```bash
+which -a openocd
+whereis openocd
+openocd --version
+```
+
+Then pick one option. Safest first:
+
+1. Tell `west` which OpenOCD to use for each command. This is the method this guide uses (`OPENOCD_PREFIX` as above):
+
+   ```bash
+   west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts"
+   ```
+
+2. Persistent west config. The author uses `west config build.openocd /usr/local/bin/openocd` and
+   `west config build.openocd-search /usr/local/share/openocd/scripts` (**untested** by this guide). This guide could not confirm that they take effect:
+   in Zephyr v4.5.0, `west flash` reads the OpenOCD path from the `--openocd` and `--openocd-search` options or from the build's own
+   settings (`scripts/west_commands/run_common.py`). A search of those sources found no code that reads a `build.openocd` config key. If you try it,
+   run `west flash` with `-v` and check which `openocd` path is printed.
+3. A shell alias in your `~/.bashrc` or `~/.zshrc` (the author uses one in `~/.zshrc`; it works but is less clean; **untested** by this guide).
+   Use your own prefix:
+
+   ```bash
+   alias wflash='west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts"'
+   ```
+
+4. Last resort, used by the author on machines with an older OpenOCD installed system-wide (**untested** by this guide).
+   **Warning: this modifies system directories. Prefer the options above, and back up first.** Find the old binary with `whereis openocd`,
+   rename it, and copy the new scripts over the old script directory:
+
+   ```bash
+   sudo mv /usr/bin/openocd /usr/bin/openocd.old
+   sudo cp -r /usr/local/share/openocd/scripts/* /usr/share/openocd/scripts/
+   ```
+
+   Adjust the paths to what `whereis` printed and to your own prefix.
+
 ## Flash
 
 Build `hello_world` as in [Build hello_world](#5-build-hello_world), attach the board as in
@@ -437,6 +468,10 @@ west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PR
 
 Zephyr's board file makes OpenOCD run `init`, `targets`, `reset init`, `flash write_image erase ...zephyr.hex`,
 `reset run` and `shutdown`, so on success the board is flashed and starts running the program on its own.
+
+In the author's experience plain `west flash` with the Zephyr SDK's own OpenOCD did not work for these boards; the fork is the supported path in this guide.
+This guide did not verify that claim with a board. What was measured is the [coverage table](docs/boards.md#openocd-target-file-coverage) of which target files each OpenOCD has.
+If another OpenOCD runs instead of the fork, see [Already have an OpenOCD installed?](#already-have-an-openocd-installed-make-sure-the-right-one-runs).
 
 **Flashing a real board was not run (untested).** What success looks like (untested): no success output was captured.
 From the fork's source, `flash write_image` prints `wrote <N> bytes from file <path> in <time>s (<rate> KiB/s)`.
@@ -476,6 +511,7 @@ The script was run against a stand-in `west` (a test script, not the real tool) 
 ### Alternative: MSDK OpenOCD
 
 To flash with the MSDK's OpenOCD instead of building the fork, see [docs/alternative-msdk.md](docs/alternative-msdk.md).
+The MSDK is needed only for that alternative path and for the MSDK's `arm-none-eabi-gdb`.
 
 If `west flash` fails, see [Troubleshooting](#troubleshooting) and [docs/troubleshooting.md](docs/troubleshooting.md).
 
@@ -503,4 +539,4 @@ so the **untested** labels can be replaced with real results. Corrections to any
 
 ## License
 
-[MIT](LICENSE).
+MIT. Copyright (c) 2026 Vanessa Roque. See [LICENSE](LICENSE).
