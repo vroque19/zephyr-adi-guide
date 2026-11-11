@@ -351,23 +351,15 @@ The wrapper's arguments were checked here against a stub `west`, and `west flash
 
 Alternative: MSDK OpenOCD. To flash with the MSDK's OpenOCD instead of building the fork, see [docs/alternative-msdk.md](docs/alternative-msdk.md).
 
-If `west flash` fails, see [Troubleshooting](#troubleshooting).
+If `west flash` fails, see [Troubleshooting](#troubleshooting) and [docs/troubleshooting.md](docs/troubleshooting.md).
+
+## Using a different board
+
+Change two values: the Zephyr board name (`west build -b ...`) and, for the MSDK script, the OpenOCD target file (`TARGET=`).
+[docs/boards.md](docs/boards.md) has the table of boards built here, how `west flash` picks the target file, and how to find yours.
 
 ## Troubleshooting
 
-### `libncurses.so.5: cannot open shared object file` (or `libtinfo.so.5`)
-
-Ubuntu 24.04 dropped `libncurses5`. Only the MSDK's `arm-none-eabi-gdb` needs it.
-Zephyr's own gdb (`arm-zephyr-eabi-gdb`) does not, so you can skip this if you do not use MSDK gdb.
-
-The fix is to install the Ubuntu 22.04 packages (**untested**, needs `sudo`):
-
-```bash
-cd "$(mktemp -d)"
-BASE=http://security.ubuntu.com/ubuntu/pool/universe/n/ncurses
-wget $BASE/libtinfo5_6.3-2ubuntu0.3_amd64.deb $BASE/libncurses5_6.3-2ubuntu0.3_amd64.deb
-sudo apt install ./libtinfo5_6.3-2ubuntu0.3_amd64.deb ./libncurses5_6.3-2ubuntu0.3_amd64.deb
-```
-
-If the version in those file names stops resolving, browse the `BASE` URL for the
-current `libtinfo5` and `libncurses5` `.deb` files.
+See [docs/troubleshooting.md](docs/troubleshooting.md) for: `west flash` fails with `FATAL ERROR: command exited with status 1`;
+`Can't find target/<chip>.cfg`; `Error: unable to find a matching CMSIS-DAP device`;
+`libncurses.so.5: cannot open shared object file`; and how to check whether your OpenOCD is new enough.
