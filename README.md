@@ -432,13 +432,19 @@ Then pick one option. Safest first:
    west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts"
    ```
 
-2. Persistent west config. The author uses `west config build.openocd /usr/local/bin/openocd` and
-   `west config build.openocd-search /usr/local/share/openocd/scripts` (**untested** by this guide). This guide could not confirm that they take effect:
-   in Zephyr v4.5.0, `west flash` reads the OpenOCD path from the `--openocd` and `--openocd-search` options or from the build's own
-   settings (`scripts/west_commands/run_common.py`). A search of those sources found no code that reads a `build.openocd` config key. If you try it,
-   run `west flash` with `-v` and check which `openocd` path is printed.
+2. Persistent setting in the build (**untested** by this guide). Zephyr's build writes the `OPENOCD` and `OPENOCD_DEFAULT_PATH` CMake variables into the
+   build's `runners.yaml` (`cmake/flash/CMakeLists.txt`), and `west build` reads extra CMake arguments from the `build.cmake-args` west setting (`build.py`).
+   So a setting like this should make `west flash` use your OpenOCD, after a pristine rebuild because the paths are written at build time:
+
+   ```bash
+   west config build.cmake-args -- "-DOPENOCD=$OPENOCD_PREFIX/bin/openocd -DOPENOCD_DEFAULT_PATH=$OPENOCD_PREFIX/share/openocd/scripts"
+   west build -p always -b apard32690/max32690/m4 samples/hello_world
+   ```
+
+   `$OPENOCD_PREFIX` expands when you run the command, and the result is stored literally. Use an absolute path, not a variable that may be unset later.
+   This changes your west configuration for every build; undo it with `west config -d build.cmake-args`.
 3. A shell alias in your `~/.bashrc` or `~/.zshrc` (the author uses one in `~/.zshrc`; it works but is less clean; **untested** by this guide).
-   Use your own prefix:
+   Use your own prefix. `OPENOCD_PREFIX` must be exported in the shell where the alias runs (the single quotes defer expansion until you run it):
 
    ```bash
    alias wflash='west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts"'
@@ -446,14 +452,15 @@ Then pick one option. Safest first:
 
 4. Last resort, used by the author on machines with an older OpenOCD installed system-wide (**untested** by this guide).
    **Warning: this modifies system directories. Prefer the options above, and back up first.** Find the old binary with `whereis openocd`,
-   rename it, and copy the new scripts over the old script directory:
+   rename it, back up the old script directory, and copy the new scripts over it:
 
    ```bash
    sudo mv /usr/bin/openocd /usr/bin/openocd.old
-   sudo cp -r /usr/local/share/openocd/scripts/* /usr/share/openocd/scripts/
+   sudo cp -a /usr/share/openocd/scripts /usr/share/openocd/scripts.bak
+   sudo cp -r "$OPENOCD_PREFIX"/share/openocd/scripts/* /usr/share/openocd/scripts/
    ```
 
-   Adjust the paths to what `whereis` printed and to your own prefix.
+   Adjust the paths to what `whereis` printed. The distro package's next `apt upgrade` may overwrite the copied scripts.
 
 ## Flash
 
