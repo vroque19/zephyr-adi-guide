@@ -18,6 +18,17 @@ if [ -z "${TARGET:-}" ]; then
   exit 1
 fi
 
+# TARGET and INTERFACE end up inside OpenOCD (Tcl) commands: allow plain names only.
+valid_name='^[A-Za-z0-9_.-]+$'
+if ! printf '%s\n' "$TARGET" | grep -Eq "$valid_name"; then
+  echo "error: TARGET must be a plain name like max32690 (letters, digits, _ . -), got: $TARGET" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$interface" | grep -Eq "$valid_name"; then
+  echo "error: INTERFACE must be a plain name like cmsis-dap (letters, digits, _ . -), got: $interface" >&2
+  exit 1
+fi
+
 if [ ! -f "$hex_file" ]; then
   echo "error: hex file not found: $hex_file" >&2
   echo "Build first (west build ...) or pass the path to a .hex file." >&2
@@ -37,9 +48,20 @@ if [ ! -f "$scripts_dir/target/$TARGET.cfg" ]; then
   exit 1
 fi
 
+if [ ! -f "$scripts_dir/interface/$interface.cfg" ]; then
+  echo "error: $scripts_dir/interface/$interface.cfg not found." >&2
+  echo "Some available interfaces:" >&2
+  { ls "$scripts_dir/interface" 2>/dev/null | head -20 || true; } | sed 's/^/  /' >&2
+  exit 1
+fi
+
+# The hex path goes through the environment so that OpenOCD's Tcl sees it as one word
+# (spaces, $, [ ], ; and quotes in the path are not interpreted).
+export FLASH_HEX="$hex_file"
+
 exec "$openocd" -s "$scripts_dir" \
   -c "source [find interface/$interface.cfg]" \
   -c "source [find target/$TARGET.cfg]" \
   -c 'init' -c 'targets' -c 'reset init' \
-  -c "flash write_image erase $hex_file" \
+  -c 'flash write_image erase $::env(FLASH_HEX)' \
   -c 'reset run' -c 'shutdown'

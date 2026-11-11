@@ -57,7 +57,9 @@ Optional settings:
 
 The hex file defaults to `build/zephyr/zephyr.hex`. Pass another path as the only argument.
 The script exits with a message on stderr if `TARGET` is unset, the hex file is missing,
-`$MSDK_DIR/Tools/OpenOCD/bin/openocd` is missing, or the target file does not exist.
+`$MSDK_DIR/Tools/OpenOCD/bin/openocd` is missing, or the target or interface file does not exist.
+`TARGET` and `INTERFACE` must be plain names (letters, digits, `_`, `.`, `-`). The hex path may contain spaces or other
+characters: it is passed to OpenOCD through an environment variable, so OpenOCD reads it as one word.
 
 It runs the MSDK's `openocd` by full path with `-s "$MSDK_DIR/Tools/OpenOCD/scripts"` and the same
 steps as Zephyr's board file: `init`, `targets`, `reset init`, `flash write_image erase <hex>`, `reset run`, `shutdown`.
@@ -82,18 +84,26 @@ openocd --version
 
 The MSDK's prints `Open On-Chip Debugger (Analog Devices 0.12.0-1.0.0-7)  OpenOCD 0.12.0 (2023-09-27-07:53)`.
 
-On the machine used for this guide, a plain `openocd` resolved to `~/MaximSDK/Tools/OpenOCD/openocd` first.
-The Zephyr SDK 0.17.4 `openocd` does not have `target/max32690.cfg` and stops with `Can't find target/max32690.cfg`.
-The notes this guide started from fixed that by deleting the system `openocd` and its scripts and putting the MSDK's first on `PATH`.
-That is not needed with `scripts/flash-msdk.sh`. What was checked (no board needed):
+`~/MaximSDK/Tools/OpenOCD/openocd` is a symlink to `~/MaximSDK/Tools/OpenOCD/bin/openocd` (checked with `ls -l`), so both are the same binary.
+The script uses the `bin/` path.
+
+The Zephyr SDK 0.17.4 `openocd` has no `target/max32690.cfg` (found in an independent check, not reproduced in this task), so
+`Can't find target/max32690.cfg` is the error you get if that binary is the one that runs. `which -a openocd` only shows
+which binaries your `PATH` finds and in what order. The notes this guide started from fixed that error by deleting the system
+`openocd` and its scripts and putting the MSDK's first on `PATH`. That is not needed with `scripts/flash-msdk.sh`.
+What was checked (no board needed):
 
 ```bash
 ~/MaximSDK/Tools/OpenOCD/bin/openocd -s ~/MaximSDK/Tools/OpenOCD/scripts \
-  -c 'puts [find target/max32690.cfg]' -c 'source [find target/max32690.cfg]' -c init -c shutdown
+  -c 'puts [find target/max32690.cfg]' \
+  -c 'source [find interface/cmsis-dap.cfg]' -c 'source [find target/max32690.cfg]' \
+  -c init -c shutdown
 ```
 
 It printed `~/MaximSDK/Tools/OpenOCD/scripts/target/max32690.cfg` (inside the MSDK) and then stopped at
-`unable to find a matching CMSIS-DAP device`, so the file was found and loaded. Run by full path, with or without `-s`,
+`unable to find a matching CMSIS-DAP device`, so the file was found and loaded (on WSL, `Error: libusb initialization failed: Other error`
+may come first; that is expected with no USB device). Without the `interface/cmsis-dap.cfg` line `init` has no adapter to look for
+and that message does not appear. Run by full path, with or without `-s`,
 this binary resolves its scripts under `~/MaximSDK/Tools/OpenOCD`, not under `/usr` or `/usr/local`.
 Only plain `openocd` from `PATH` is affected by what else is installed.
 
