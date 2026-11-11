@@ -49,10 +49,9 @@ So for boards whose file your SDK's OpenOCD lacks (`max32650`, `max32655`, `max3
 `west flash` with that OpenOCD cannot load the target (the same kind of failure as in [Troubleshooting](troubleshooting.md); to confirm your case, read the log). Use the [ADI fork](../README.md#build-adi-openocd)
 or the [MSDK alternative](alternative-msdk.md) (the MSDK also lacks `max32657` and `max32658`: the fork only). For the `max32690` family with SDK 1.0.1 the file and the
 `allow_low_pwr_dbg` command are both present, so the need for the fork was not shown (**untested with a board**).
-Zephyr boards by cfg (from the `select SOC_...` lines in `<ZEPHYR_DIR>/boards/adi/*/Kconfig.*` and the shared
-`openocd-adi-max32.boards.cmake`): `max32650.cfg` for `max32650evkit`, `max32650fthr`, `max32651evkit` and `ad_swiot1l_sl`;
-`max32665.cfg` for `max32666evkit` and `max32666fthr`; `max32655.cfg` for `max32655evkit`/`fthr`; `max32657.cfg` and `max32658.cfg`
-for `max32657evkit` and `max32658evkit`; `max78000.cfg` for `max78000evkit`/`fthr`; `max78002.cfg` for `max78002evkit`.
+Which Zephyr boards need which cfg (from the `select SOC_...` lines in `<ZEPHYR_DIR>/boards/adi/*/Kconfig.*` and the shared
+`openocd-adi-max32.boards.cmake`) is in the
+[affected boards table](troubleshooting.md#west-flash-fails-with-fatal-error-command-exited-with-status-1).
 
 The MSDK's OpenOCD has two script trees, `Tools/OpenOCD/scripts` and `Tools/OpenOCD/share/openocd/scripts`. By `ls`, `max32620`,
 `max32625` and `max3263x` exist only in the second (and `find` resolves them); the other MSDK cfgs in the matrix (`max32650`, `max32655`,

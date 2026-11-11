@@ -17,7 +17,8 @@ described as "ran without a board". No board has been flashed with this guide ye
 
 The short path. Steps 3, 4 and 5 are required: step 4 builds the OpenOCD that step 5 uses.
 
-1. Install host packages and the MSDK: [Prerequisites](#prerequisites). **(untested: needs `sudo`)**
+1. Get a debug probe if your board needs one, then install host packages and the MSDK: [Prerequisites](#prerequisites). **(untested: needs `sudo`)**
+   Hardware: see [Hardware you need](#hardware-you-need).
 2. Set up Zephyr v4.5.0 and build `hello_world`:
 
    ```bash
@@ -31,7 +32,7 @@ The short path. Steps 3, 4 and 5 are required: step 4 builds the OpenOCD that st
 
 3. Attach the board's debug probe to WSL with usbipd-win: [Connect your board to WSL](#connect-your-board-to-wsl).
    **(untested: needs the board and a Windows Administrator shell)**
-4. Build ADI's OpenOCD fork in `~/adi-openocd`, installed to `$HOME/.local`: [Build ADI OpenOCD](#build-adi-openocd).
+4. Build ADI's OpenOCD fork in `~/adi-openocd`, installed to `$HOME/.local`: [Build ADI OpenOCD](#build-adi-openocd) (run the build commands and `make install` from that section).
    **(untested with a board; `sudo` only if you choose `/usr/local`)**
 5. Flash from the Zephyr directory, in a shell where the venv is active: **(untested: needs the board)**
 
@@ -45,7 +46,7 @@ Something broke? See [Troubleshooting](#troubleshooting).
 
 ## Contents
 
-- [Tested with](#tested-with)
+- [Versions used](#versions-used)
 - [Which OpenOCD do I need?](#which-openocd-do-i-need)
 - [Prerequisites](#prerequisites)
 - [Zephyr setup](#zephyr-setup)
@@ -58,7 +59,7 @@ Something broke? See [Troubleshooting](#troubleshooting).
 - [Contributing and feedback](#contributing-and-feedback)
 - [License](#license)
 
-## Tested with
+## Versions used
 
 | Component | Version |
 | --- | --- |
@@ -89,6 +90,20 @@ The OpenOCD in the Zephyr SDK lacks target files for several ADI chips, and the 
 - `west flash` errors: [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Prerequisites
+
+### Hardware you need
+
+The boards in this guide, except the MAX78000FTHR, need a CMSIS-DAP-compatible debug probe connected over SWD to the board's debug header.
+Per Zephyr's own board docs:
+
+- MAX78000FTHR: a MAX32625 on the board is preprogrammed with DAPLink firmware, so debugging and programming work over its USB port. No extra probe.
+- APARD32690: connect an external debug probe to the SWD header `P9`.
+- MAX32655EVKIT: connect an external debug probe to the SWD header `JH3`.
+- MAX78000EVKIT: connect an external debug probe to the SWD header `JH5`.
+
+The default `west flash` settings for these boards use OpenOCD's `cmsis-dap.cfg` interface file (set in
+`<ZEPHYR_DIR>/boards/common/openocd-adi-max32.boards.cmake`), so a different probe type needs a different interface config.
+(That shared file already uses `jlink.cfg` for MAX32657 boards.) Check your board's user guide for the exact connector.
 
 ### 1. Host packages
 
@@ -223,21 +238,20 @@ In PowerShell (**untested**):
 winget install --interactive --exact dorssel.usbipd-win
 ```
 
-The install may reboot the PC, so save your work first. Then close and reopen PowerShell so `usbipd` is on your `PATH`.
+Per Microsoft's doc, without `--interactive` winget may restart your computer immediately if drivers require it, so save your work first. Then close and reopen PowerShell so `usbipd` is on your `PATH`.
 
 ### 2. Find your board (Windows)
 
-Plug in the USB cable of the debug probe, then run (**untested**). Which connector? It depends on the board; check your board's user guide for the debug USB port.
-Per Zephyr's own board docs: the MAX78000FTHR has a MAX32625 preprogrammed with DAPLink firmware that allows debugging and programming over USB,
-while the docs for the APARD32690, MAX32655EVKIT and MAX78000EVKIT say to connect an external debug probe to the SWD header (`P9`, `JH3` and `JH5`).
-A charge-only port or cable will not work.
+Plug the debug probe into your PC, then run (**untested**). Which connector depends on the board (see [Hardware you need](#hardware-you-need)):
+the MAX78000FTHR's own USB port (it has an on-board DAPLink probe), or the USB cable of the external probe wired to `P9` (APARD32690),
+`JH3` (MAX32655EVKIT) or `JH5` (MAX78000EVKIT). Check your board's user guide for the exact connector. A charge-only cable will not work.
 
 ```powershell
 usbipd list
 ```
 
 Each line under `Connected:` has a `BUSID` (like `2-4`): the USB port the device sits on.
-Pick the line whose `DEVICE` looks like the on-board debugger, usually named
+Pick the line whose `DEVICE` looks like the debug probe (on-board or external), usually named
 `CMSIS-DAP`, `DAPLink` or similar, often together with a `USB Serial Device (COMx)`.
 Its `STATE` is `Not shared` at this point. The rest of this guide calls that value `<BUSID>`.
 If nothing new shows up when you plug the board in, try another cable (some are charge-only) or port.
@@ -277,7 +291,7 @@ lsusb
 ```
 
 You should see a new line for the debugger (the exact text depends on your board). This example line is
-illustrative, not captured from a real board. Match on the VID:PID `0d28:0204` for DAPLink-style probes only if that is what your board shows:
+illustrative, not captured from a real board. Your probe's VID:PID may differ:
 
 ```text
 Bus 001 Device 002: ID 0d28:0204 ARM DAPLink CMSIS-DAP
@@ -303,7 +317,7 @@ If `lsusb` is still empty after `attach`, run `wsl --shutdown` and then `wsl --u
 ## Build ADI OpenOCD
 
 The OpenOCD that ships with the Zephyr SDK 1.0.1 has no target file for some ADI boards (`max32650`, `max32655`,
-`max32657`, `max32658`, `max32665`, `max78000`, `max78002`; see the [coverage matrix](docs/boards.md#openocd-target-file-coverage)).
+`max32657`, `max32658`, `max32665`, `max78000`, `max78002`; see the [coverage matrix](docs/boards.md#openocd-target-file-coverage) and the [affected boards table](docs/troubleshooting.md#west-flash-fails-with-fatal-error-command-exited-with-status-1)).
 For `max32690` boards the file and the `allow_low_pwr_dbg` command are present there, so the fork was not shown to be needed
 (**untested with a board**). ADI keeps its own fork with the board and flash support:
 [analogdevicesinc/openocd](https://github.com/analogdevicesinc/openocd). This guide builds that fork
@@ -438,11 +452,10 @@ This guide ships two helper scripts: `scripts/flash-adi-fork.sh` (the command ab
 `<REPO_URL>` is this repository's clone URL (fill in the URL shown on the repository's page):
 
 ```bash
-cd ~ && git clone <REPO_URL>
-cd ~/zephyr-adi-guide
+git clone <REPO_URL> ~/zephyr-adi-guide
 ```
 
-`git clone` creates a directory named after the repository, `zephyr-adi-guide`. The scripts below use `GUIDE_DIR` for that directory:
+The scripts below use `GUIDE_DIR` for that directory:
 
 ```bash
 export GUIDE_DIR="$HOME/zephyr-adi-guide"
@@ -454,10 +467,10 @@ Then, from `~/zephyrproject/zephyr` with the venv active:
 "$GUIDE_DIR/scripts/flash-adi-fork.sh"
 ```
 
-The script reads `OPENOCD_PREFIX` and defaults to `/usr/local` if it is unset. With `$HOME/.local` you must have it exported
-(as above), or pass it inline: `OPENOCD_PREFIX="$HOME/.local" "$GUIDE_DIR/scripts/flash-adi-fork.sh"`.
-Extra arguments go straight to `west flash`. If `$OPENOCD_PREFIX/bin/openocd` is missing or not executable,
-the script prints a message on stderr and exits with status 1.
+The script reads `OPENOCD_PREFIX` and defaults to `$HOME/.local` if it is unset. With `/usr/local` you must have it exported
+(as above), or pass it inline: `OPENOCD_PREFIX=/usr/local "$GUIDE_DIR/scripts/flash-adi-fork.sh"`.
+Extra arguments go straight to `west flash`. If `$OPENOCD_PREFIX/bin/openocd` or `$OPENOCD_PREFIX/share/openocd/scripts` is missing, or `west` is not on your `PATH`
+(venv not active), the script prints a message on stderr and exits with status 1.
 The script was run against a stand-in `west` (a test script, not the real tool) to check its arguments (**ran without a board**).
 
 ### Alternative: MSDK OpenOCD

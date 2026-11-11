@@ -45,9 +45,8 @@ TARGET=max32690 "$GUIDE_DIR/scripts/flash-msdk.sh"
 TARGET=max32655 "$GUIDE_DIR/scripts/flash-msdk.sh"
 ```
 
-The MSDK also has `Tools/OpenOCD/share/openocd/scripts`. OpenOCD finds files there even with `-s Tools/OpenOCD/scripts`, and the script
-accepts a target or interface found in either tree, so `max32620`, `max32625` and `max3263x` (which exist only in the second tree)
-work (see [boards](boards.md#openocd-target-file-coverage)). List the names from both trees:
+The MSDK has two script trees and the script accepts a target from either one (details in
+[boards](boards.md#openocd-target-file-coverage)). List the names from both trees:
 
 ```bash
 ls -1 ~/MaximSDK/Tools/OpenOCD/scripts/target | grep '^max.*\.cfg$'
@@ -76,7 +75,7 @@ the full path and `-s`, the MSDK's binary only reads the MSDK's own scripts. See
 ## Why `west flash` can't be used
 
 `west flash` (Zephyr's openocd runner) sends the OpenOCD command `allow_low_pwr_dbg`.
-The MSDK's OpenOCD (`Analog Devices 0.12.0-1.0.0-7`) does not have that command, so `west flash` cannot drive it.
+The MSDK's OpenOCD (`Analog Devices 0.12.0-1.0.0-7`) does not have that command, so `west flash` is expected not to work with it (inferred: the command is absent in that binary; ran without a board).
 That is why the script writes the hex file directly instead. The ADI fork does have the command, which is why
 the main guide can use `west flash`.
 

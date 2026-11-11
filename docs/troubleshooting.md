@@ -12,6 +12,8 @@
 Symptom (paths shortened; `<SDK>` is your Zephyr SDK, `<ZEPHYR_DIR>` your Zephyr checkout, `~/zephyrproject/zephyr` in the guide):
 
 ```text
+runners.openocd: INFO: OpenOCD log file: <ZEPHYR_DIR>/build/openocd.log
+runners.openocd: INFO: Flashing file: <ZEPHYR_DIR>/build/zephyr/zephyr.hex
 Open On-Chip Debugger 0.12.0-01050-g91bd278a5 (2026-03-25-02:24)
 Licensed under GNU GPL v2
 For bug reports, read
@@ -65,7 +67,7 @@ What ran without a board attached:
 - Ran without a board: `west flash` for the APARD32690 with Zephyr SDK 1.0.1's own OpenOCD (`0.12.0-01050-g91bd278a5`) printed
   `Error: libusb initialization failed: Other error` and `Error: unable to find a matching CMSIS-DAP device`,
   then the `FATAL ERROR: command exited with status 1` line (the same failure as the example). The cfg and command exist there.
-- Ran without a board: the same with the ADI fork built here (`/usr/local/bin/openocd`; `west flash --openocd ... --openocd-search ...`): `Error: unable to find a matching CMSIS-DAP device`,
+- Ran without a board: the same with a fork build already on this machine (`/usr/local/bin/openocd`; `west flash --openocd ... --openocd-search ...`): `Error: unable to find a matching CMSIS-DAP device`,
   then the same `FATAL ERROR` line.
 - Ran without a board: for a MAX78000 board, Zephyr SDK 1.0.1's OpenOCD printed `Can't find target/max78000.cfg` before `FATAL ERROR`.
 
@@ -118,17 +120,33 @@ What the file contains (read from a recent checkout of the fork's default branch
 - It has no entry for VID `0d28` (the DAPLink-style example used in this guide). If your probe's VID:PID from `lsusb` is not in the file,
   add a line in the same format (**untested**).
 
-Install and reload the rules (**untested**, needs `sudo`):
+Example line for a CMSIS-DAP/DAPLink probe with VID `0d28` and PID `0204`, in the same format as the file's own lines
+(**untested**; change the VID:PID to your probe's `lsusb` output):
+
+```text
+ATTRS{idVendor}=="0d28", ATTRS{idProduct}=="0204", MODE="660", GROUP="plugdev", TAG+="uaccess"
+```
+
+Install and reload the rules (**untested**, needs `sudo`). Put the example line in a copy of the file first if you need it:
 
 ```bash
 sudo cp ~/adi-openocd/contrib/60-openocd.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-Then unplug and re-attach the board (`usbipd attach ...`) and try again. This needs udev to be running in your WSL distribution.
-Whether it is running on your setup was not checked here, and no upstream document is cited for enabling it.
+The rules use the group `plugdev`. Check whether you are in it, and add yourself if not (**untested**):
+
+```bash
+groups
+sudo usermod -aG plugdev "$USER"
+```
+
+A new group membership applies after you log in again; on WSL, run `wsl --shutdown` in PowerShell, then reopen WSL and attach the board again.
+This needs udev to be running in your WSL distribution. Whether it is running on your setup was not checked here, and no upstream
+document is cited for enabling it.
 If udev is not running on your WSL, run the flash command with `sudo -E` as a last resort (**untested**):
 `sudo -E env "PATH=$PATH" west flash ...` (`env "PATH=$PATH"` keeps your venv's `west` on the path).
+Warning: if the build is stale, `west flash` may rebuild as root and leave root-owned files in `build/`. Build as your own user first.
 
 ## `libncurses.so.5: cannot open shared object file` (or `libtinfo.so.5`)
 
@@ -139,10 +157,12 @@ The fix is to install the Ubuntu 22.04 packages (**untested**, needs `sudo`):
 
 ```bash
 cd "$(mktemp -d)"
-BASE=http://security.ubuntu.com/ubuntu/pool/universe/n/ncurses
+BASE=https://security.ubuntu.com/ubuntu/pool/universe/n/ncurses
 wget $BASE/libtinfo5_6.3-2ubuntu0.3_amd64.deb $BASE/libncurses5_6.3-2ubuntu0.3_amd64.deb
 sudo apt install ./libtinfo5_6.3-2ubuntu0.3_amd64.deb ./libncurses5_6.3-2ubuntu0.3_amd64.deb
 ```
+
+`sudo apt install ./file.deb` does not check a signature, so the https download from Ubuntu's security archive is the trust anchor here.
 
 If the version in those file names stops resolving, browse the `BASE` URL for the
 current `libtinfo5` and `libncurses5` `.deb` files.
@@ -180,6 +200,7 @@ build at `/usr/local/bin/openocd` (built 2026-03-11, no tag in its version strin
 | Zephyr SDK 0.17.4 | `Can't find target/max32690.cfg` | not run |
 
 Version drift: the Zephyr SDK and the upstream/ADI OpenOCD change over time, and the table above is a snapshot.
+See the ADI fork's [tags](https://github.com/analogdevicesinc/openocd/tags) and the Zephyr SDK [releases](https://github.com/zephyrproject-rtos/sdk-ng/releases) for newer versions.
 If a newer Zephyr SDK ships an OpenOCD that passes both checks for your chip, the default `west flash` may work without
 the fork; try it with your board attached and report what happens. Zephyr's own `west flash` command line (printed on failure) shows
 which target file and commands it needs, and
