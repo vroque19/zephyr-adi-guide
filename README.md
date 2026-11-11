@@ -135,6 +135,87 @@ ls build/zephyr/zephyr.hex
 
 That is the file you will flash in the next sections.
 
+## Connect your board to WSL
+
+WSL cannot see USB devices on its own. [usbipd-win](https://github.com/dorssel/usbipd-win)
+shares a Windows USB device with WSL. Everything in this section needs the board, so it is
+all **untested** here (the usbipd flags were checked against `usbipd --help` of version 5.3.0 only).
+
+### 1. Install usbipd-win (Windows)
+
+In PowerShell (**untested**):
+
+```powershell
+winget install usbipd
+```
+
+Then close and reopen PowerShell so `usbipd` is on your `PATH`.
+
+### 2. Find your board (Windows)
+
+Plug the board into its **debug USB port** (the one wired to the on-board debugger, not a power-only port), then run (**untested**):
+
+```powershell
+usbipd list
+```
+
+Each line under `Connected:` has a `BUSID` (like `2-4`): the USB port the device sits on.
+Pick the line whose `DEVICE` looks like the on-board debugger, usually named
+`CMSIS-DAP`, `DAPLink` or similar, often together with a `USB Serial Device (COMx)`.
+Its `STATE` is `Not shared` at this point. The rest of this guide calls that value `<BUSID>`.
+If nothing new shows up when you plug the board in, try another cable (some are charge-only) or port.
+
+### 3. Share and attach (Windows)
+
+Sharing is done once per device and needs PowerShell **as Administrator** (**untested**):
+
+```powershell
+usbipd bind --busid <BUSID>
+```
+
+`usbipd list` now shows `Shared`. Attaching does not need Administrator (**untested**):
+
+```powershell
+usbipd attach --wsl --busid <BUSID>
+```
+
+`--wsl` uses your default WSL distribution. To pick one, add its name: `--wsl Ubuntu-24.04`.
+`usbipd list` now shows `Attached`.
+
+The attachment is lost when you unplug the board, reboot, or restart WSL, so repeat the `attach` command each time.
+To re-attach automatically, leave this running in a PowerShell window instead (**untested**):
+
+```powershell
+usbipd attach --wsl --busid <BUSID> --auto-attach
+```
+
+### 4. Check it from WSL
+
+Do this before flashing. An unattached board is the usual reason `west flash` fails.
+
+```bash
+lsusb
+```
+
+You should see a new line for the debugger (the exact text depends on your board), for example:
+
+```text
+Bus 001 Device 002: ID 0d28:0204 ARM DAPLink CMSIS-DAP
+```
+
+The serial port normally shows up as `/dev/ttyACM0` (sometimes `ttyUSB0`):
+
+```bash
+ls /dev/ttyACM* /dev/ttyUSB*
+dmesg | grep -i tty
+```
+
+If `dmesg` prints a permission error, use `sudo dmesg | grep -i tty`.
+
+If you see nothing new, the board is not attached. Go back to `usbipd list` on Windows,
+check that `STATE` says `Attached`, and run the `attach` command again.
+With no USB device attached at all, `lsusb` prints nothing and `ls` says `No such file or directory`.
+
 ## Troubleshooting
 
 ### `libncurses.so.5: cannot open shared object file` (or `libtinfo.so.5`)
