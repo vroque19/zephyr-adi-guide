@@ -18,41 +18,48 @@ For bug reports, read
 FATAL ERROR: command exited with status 1: <SDK>/hosttools/sysroots/x86_64-pokysdk-linux/usr/bin/openocd -s <SDK>/hosttools/sysroots/x86_64-pokysdk-linux/usr/share/openocd/scripts --log_output <ZEPHYR_DIR>/build/openocd.log -c 'if { [info exists _ZEPHYR_BOARD_SERIAL] } { adapter serial $_ZEPHYR_BOARD_SERIAL }' -c 'source [find interface/cmsis-dap.cfg]' -c 'source [find target/max32655.cfg]' -c allow_low_pwr_dbg '-c init' '-c targets' -c 'reset init' -c 'flash write_image erase <ZEPHYR_DIR>/build/zephyr/zephyr.hex' -c 'reset run' -c shutdown
 ```
 
-This message is only `west` reporting that OpenOCD exited with an error. It does not say why.
-Find the reason first:
+This message is only `west` reporting that OpenOCD exited with an error. It does not say why. The printed command
+sources `target/<chip>.cfg` (the example names `max32655.cfg`). If the OpenOCD you use has no such file, OpenOCD aborts
+and the reason (`Can't find target/<chip>.cfg`) is written only to the log file named by `--log_output`, so the terminal shows
+just the banner and the `FATAL ERROR` line. This was demonstrated with Zephyr SDK 1.0.1's OpenOCD and `max32655.cfg`: terminal
+shows only the banner, exit status 1, and the log contains `Can't find target/max32655.cfg`; `allow_low_pwr_dbg` and `init` never run.
+That matches the example above, so a missing target file is the verified likely cause.
 
-- If the command has `--log_output <file>`, read the end of that file (`tail build/openocd.log`).
-- Otherwise OpenOCD's messages are printed just above the `FATAL ERROR` line. (On the machine used for this
-  guide the default runner printed them there and created no `build/openocd.log`.)
-- Or run the OpenOCD command that `west` printed by hand.
+Find the reason for your case:
 
-Then match the last `Error:` line:
+- Check which cfg the command names and whether your OpenOCD has it: see [Is my OpenOCD new enough?](#is-my-openocd-new-enough)
+  and the [coverage matrix](boards.md#openocd-target-file-coverage).
+- If the command has `--log_output <file>`, read the end of that file (`tail <build>/openocd.log`) if it exists.
+  (On the machine used for this guide the default runner printed OpenOCD's messages on the terminal and created no `build/openocd.log`.)
+- Otherwise run the printed command by hand, **without** the `--log_output <file>` option, to see the message on the terminal.
 
-1. `Error: unable to find a matching CMSIS-DAP device`: the board is not attached to WSL. This is the first thing to rule out.
-   See [the next entry](#error-unable-to-find-a-matching-cmsis-dap-device).
-2. `Can't find target/<chip>.cfg`: this OpenOCD has no file for your chip.
-   See [`Can't find target/<chip>.cfg`](#cant-find-targetchipcfg).
-3. An error about the command `allow_low_pwr_dbg` (it is on the printed command line): that OpenOCD does not have the command.
-   The MSDK's OpenOCD is one that does not (see below).
+Then match the message:
 
-What was checked here with no board attached, and where it was run (so that it ends at the missing adapter):
+1. `Can't find target/<chip>.cfg`: this OpenOCD has no file for your chip.
+   See [`Can't find target/<chip>.cfg`](#cant-find-targetchipcfg). Zephyr SDK 1.0.1's OpenOCD lacks it for `max32655`, `max78000`,
+   `max78002`, `max32650` and `max32665` (verified, no board); it has `max32690`.
+2. `Error: unable to find a matching CMSIS-DAP device`: the cfg exists and the next suspect is a board not attached to WSL.
+   See [the next entry](#error-unable-to-find-a-matching-cmsis-dap-device) and the
+   [usbipd section](../README.md#connect-your-board-to-wsl).
+3. An error about `allow_low_pwr_dbg` (it is on the printed command line): that OpenOCD does not have the command.
+   The MSDK's OpenOCD (`Analog Devices 0.12.0-1.0.0-7`) is one that does not.
 
-- `west flash` for the APARD32690 with the Zephyr SDK 1.0.1's own OpenOCD (`0.12.0-01050-g91bd278a5`) printed
+What was observed here with no board attached:
+
+- `west flash` for the APARD32690 with Zephyr SDK 1.0.1's own OpenOCD (`0.12.0-01050-g91bd278a5`) printed
   `Error: libusb initialization failed: Other error` and `Error: unable to find a matching CMSIS-DAP device`,
-  then the `FATAL ERROR: command exited with status 1` line above (same shape as the example).
+  then the `FATAL ERROR: command exited with status 1` line (same shape as the example). The cfg and command exist there.
 - The same with the ADI fork (`west flash --openocd ... --openocd-search ...`): `Error: unable to find a matching CMSIS-DAP device`,
   then the same `FATAL ERROR` line.
-- For a MAX78000 board, the Zephyr SDK 1.0.1's OpenOCD printed `Can't find target/max78000.cfg` before `FATAL ERROR`.
-- The MSDK's OpenOCD (`Analog Devices 0.12.0-1.0.0-7`) has no `allow_low_pwr_dbg` command; the ADI fork and the Zephyr SDK 1.0.1's OpenOCD have it.
+- For a MAX78000 board, Zephyr SDK 1.0.1's OpenOCD printed `Can't find target/max78000.cfg` before `FATAL ERROR`.
 
-**Untested with a board:** the author has not yet reproduced a failure of the bundled OpenOCD with a board attached,
-so the claim is not that the SDK's OpenOCD cannot flash ADI boards. It was not tried.
+**Untested with a board:** behavior with a board attached, and whether `max32690` boards flash with Zephyr SDK 1.0.1's OpenOCD,
+were not tried.
 
-Fix:
+Fix: for boards whose cfg your SDK's OpenOCD lacks,
 
 - Main path: build and use the [ADI OpenOCD fork](../README.md#build-adi-openocd) and [flash with it](../README.md#flash).
-- Alternative: [flash with the MSDK's OpenOCD](alternative-msdk.md), which does not use `allow_low_pwr_dbg`.
-- To check an OpenOCD before you try, see [Is my OpenOCD new enough?](#is-my-openocd-new-enough).
+- Alternative: [flash with the MSDK's OpenOCD](alternative-msdk.md) (its script does not use `allow_low_pwr_dbg`).
 
 ## `Can't find target/<chip>.cfg`
 
@@ -60,7 +67,7 @@ Example: `Can't find target/max32690.cfg`. This OpenOCD has no target file for t
 
 Checked here: the OpenOCD in Zephyr SDK 0.17.4 (`0.12.0-01018-gb89d626c6`) has only `max32620`, `max32625` and `max3263x`
 target files and prints `Can't find target/max32690.cfg`. Zephyr SDK 1.0.1's OpenOCD has `max32690.cfg` but no `max32655.cfg` or `max78000.cfg`
-(see [Boards](boards.md)). The MSDK's OpenOCD and the ADI fork have all three.
+(see the [coverage matrix](boards.md#openocd-target-file-coverage)). The MSDK's OpenOCD and the ADI fork have all of these.
 
 Fix: use an OpenOCD that has the file.
 
@@ -70,9 +77,9 @@ Fix: use an OpenOCD that has the file.
 
 ## `Error: unable to find a matching CMSIS-DAP device`
 
-OpenOCD found its files but no debug adapter. The board is almost always not attached to WSL.
-On WSL you may also see `Error: libusb initialization failed: Other error` just before it; that goes with no USB device being visible.
-Both were seen here with no board attached.
+OpenOCD loaded its files but found no debug adapter. A board that is not attached to WSL is the first thing to rule out.
+On WSL `Error: libusb initialization failed: Other error` may appear just before it.
+Both lines appeared here with no board attached; other causes with a board attached were not checked.
 
 1. In WSL run `lsusb`. You should see the debugger (for example `ARM DAPLink CMSIS-DAP`). If not, the board is not attached.
 2. On Windows run `usbipd list` and check that the board's `STATE` is `Attached`; if not, run

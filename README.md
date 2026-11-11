@@ -219,8 +219,10 @@ With no USB device attached at all, `lsusb` prints nothing and `ls` says `No suc
 
 ## Build ADI OpenOCD
 
-The OpenOCD that ships with the Zephyr SDK (and the upstream release) may not know the newest
-ADI boards. ADI keeps its own fork with the board and flash support:
+The OpenOCD that ships with the Zephyr SDK 1.0.1 has no target file for some ADI boards (`max32655`, `max78000`,
+`max78002`, `max32650`, `max32665`; see the [coverage matrix](docs/boards.md#openocd-target-file-coverage)).
+For `max32690` boards the file and the `allow_low_pwr_dbg` command are present there, so the fork was not shown to be needed
+(**untested with a board**). ADI keeps its own fork with the board and flash support:
 [analogdevicesinc/openocd](https://github.com/analogdevicesinc/openocd). This guide builds that fork
 and points `west flash` at it.
 
@@ -355,7 +357,8 @@ If `west flash` fails, see [Troubleshooting](#troubleshooting) and [docs/trouble
 
 ## Using a different board
 
-Change two values: the Zephyr board name (`west build -b ...`) and, for the MSDK script, the OpenOCD target file (`TARGET=`).
+Change the Zephyr board name (`west build -b ...`). For `west flash`, the runner derives the OpenOCD target file from the Zephyr board itself;
+`TARGET=` is only for the MSDK script.
 [docs/boards.md](docs/boards.md) has the table of boards built here, how `west flash` picks the target file, and how to find yours.
 
 ## Troubleshooting
