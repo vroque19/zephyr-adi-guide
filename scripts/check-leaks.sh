@@ -34,8 +34,8 @@ run() { # run <grep flags...> -- ; pattern and files passed via globals
     *) echo "check-leaks: grep failed (rc=$rc)" >&2; status=2 ;;
   esac
 }
-run -iE -e '[\\/]hom[e][\\/][^\\/[:space:]]+'
-run -iE -e '[\\/]User[s][\\/][^\\/[:space:]]+'
+run -iE -e '[\\/]hom[e]([\\/])+[^\\/[:space:]]+'
+run -iE -e '[\\/]User[s]([\\/])+[^\\/[:space:]]+'
 run -E  -e '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
 [ -n "${USER:-}" ] && run -iF -e "$USER"
 exit $status
