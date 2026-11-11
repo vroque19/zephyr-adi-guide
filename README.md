@@ -349,6 +349,8 @@ The wrapper's arguments were checked here against a stub `west`, and `west flash
 `openocd` (it stopped at `unable to find a matching CMSIS-DAP device`, as expected with no board).
 **Flashing a real board was not run (untested)**, so there is no success output to paste yet.
 
+Alternative: MSDK OpenOCD. To flash with the MSDK's OpenOCD instead of building the fork, see [docs/alternative-msdk.md](docs/alternative-msdk.md).
+
 If `west flash` fails, see [Troubleshooting](#troubleshooting).
 
 ## Troubleshooting
