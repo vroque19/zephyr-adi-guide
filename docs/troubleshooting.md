@@ -3,12 +3,13 @@
 - [`west flash` fails with `FATAL ERROR: command exited with status 1`](#west-flash-fails-with-fatal-error-command-exited-with-status-1)
 - [`Can't find target/<chip>.cfg`](#cant-find-targetchipcfg)
 - [`Error: unable to find a matching CMSIS-DAP device`](#error-unable-to-find-a-matching-cmsis-dap-device)
+- [Access denied / permission error opening the probe](#access-denied--permission-error-opening-the-probe)
 - [`libncurses.so.5: cannot open shared object file`](#libncursesso5-cannot-open-shared-object-file-or-libtinfoso5)
 - [Is my OpenOCD new enough?](#is-my-openocd-new-enough)
 
 ## `west flash` fails with `FATAL ERROR: command exited with status 1`
 
-Symptom (paths shortened; `<SDK>` is your Zephyr SDK, `<ZEPHYR_DIR>` your Zephyr checkout):
+Symptom (paths shortened; `<SDK>` is your Zephyr SDK, `<ZEPHYR_DIR>` your Zephyr checkout, `~/zephyrproject/zephyr` in the guide):
 
 ```text
 Open On-Chip Debugger 0.12.0-01050-g91bd278a5 (2026-03-25-02:24)
@@ -21,7 +22,7 @@ FATAL ERROR: command exited with status 1: <SDK>/hosttools/sysroots/x86_64-pokys
 This message is only `west` reporting that OpenOCD exited with an error. It does not say why. The printed command
 sources `target/<chip>.cfg` (the example names `max32655.cfg`). One way to get exactly this output: if the OpenOCD you use has
 no such file, OpenOCD aborts. Running Zephyr SDK 1.0.1's OpenOCD directly with `--log_output <file>` and `max32655.cfg` reproduced the
-same shape: only the banner on the terminal, exit status 1, and `Can't find target/max32655.cfg` only in the log file;
+same failure: only the banner on the terminal, exit status 1, and `Can't find target/max32655.cfg` only in the log file;
 `allow_low_pwr_dbg` and `init` never ran. That this is what happened in your own failing run is an inference, because the
 pasted output has no reason line: to confirm, read the reason as described below.
 
@@ -29,7 +30,7 @@ Where the reason appears depends on the command `west` printed (`west` adds `--l
 
 - (a) The command contains `--log_output <build>/openocd.log` (as in the example): the terminal shows only the banner and the
   `FATAL ERROR` line, and the reason is in that log. Read it with `tail <build>/openocd.log`.
-- (b) The command has no `--log_output`: OpenOCD's messages print above `FATAL ERROR`. This was observed here (no board) for `max78000`,
+- (b) The command has no `--log_output`: OpenOCD's messages print above `FATAL ERROR`. This ran without a board for `max78000`,
   and no `build/openocd.log` was created.
 - Either way you can run the printed command by hand, **without** the `--log_output <file>` option, to see the message on the terminal.
 
@@ -40,7 +41,7 @@ Then match the message:
 
 1. `Can't find target/<chip>.cfg`: this OpenOCD has no file for your chip.
    See [`Can't find target/<chip>.cfg`](#cant-find-targetchipcfg). Zephyr SDK 1.0.1's OpenOCD lacks the file for `max32650`,
-   `max32655`, `max32657`, `max32658`, `max32665`, `max78000` and `max78002` (checked, no board); it has `max32690`.
+   `max32655`, `max32657`, `max32658`, `max32665`, `max78000` and `max78002` (ran without a board); it has `max32690`.
    Affected Zephyr boards, by the cfg each one needs:
 
    | Target cfg | Zephyr boards |
@@ -59,14 +60,14 @@ Then match the message:
 3. An error about `allow_low_pwr_dbg` (it is on the printed command line): that OpenOCD does not have the command.
    The MSDK's OpenOCD (`Analog Devices 0.12.0-1.0.0-7`) is one that does not.
 
-What was observed here with no board attached:
+What ran without a board attached:
 
-- Observed here with no board: `west flash` for the APARD32690 with Zephyr SDK 1.0.1's own OpenOCD (`0.12.0-01050-g91bd278a5`) printed
+- Ran without a board: `west flash` for the APARD32690 with Zephyr SDK 1.0.1's own OpenOCD (`0.12.0-01050-g91bd278a5`) printed
   `Error: libusb initialization failed: Other error` and `Error: unable to find a matching CMSIS-DAP device`,
-  then the `FATAL ERROR: command exited with status 1` line (same shape as the example). The cfg and command exist there.
-- Observed here with no board: the same with the ADI fork built here (`/usr/local/bin/openocd`; `west flash --openocd ... --openocd-search ...`): `Error: unable to find a matching CMSIS-DAP device`,
+  then the `FATAL ERROR: command exited with status 1` line (the same failure as the example). The cfg and command exist there.
+- Ran without a board: the same with the ADI fork built here (`/usr/local/bin/openocd`; `west flash --openocd ... --openocd-search ...`): `Error: unable to find a matching CMSIS-DAP device`,
   then the same `FATAL ERROR` line.
-- Observed here with no board: for a MAX78000 board, Zephyr SDK 1.0.1's OpenOCD printed `Can't find target/max78000.cfg` before `FATAL ERROR`.
+- Ran without a board: for a MAX78000 board, Zephyr SDK 1.0.1's OpenOCD printed `Can't find target/max78000.cfg` before `FATAL ERROR`.
 
 **Untested with a board:** behavior with a board attached, and whether `max32690` boards flash with Zephyr SDK 1.0.1's OpenOCD,
 were not tried.
@@ -80,7 +81,7 @@ Fix: for boards whose cfg your SDK's OpenOCD lacks,
 
 Example: `Can't find target/max32690.cfg`. This OpenOCD has no target file for that chip.
 
-Checked here: the OpenOCD in Zephyr SDK 0.17.4 (`0.12.0-01018-gb89d626c6`) has only `max32620`, `max32625` and `max3263x`
+Ran without a board: the OpenOCD in Zephyr SDK 0.17.4 (`0.12.0-01018-gb89d626c6`) has only `max32620`, `max32625` and `max3263x`
 target files and prints `Can't find target/max32690.cfg`. Zephyr SDK 1.0.1's OpenOCD has `max32690.cfg` but not, for example, `max32655.cfg` or `max78000.cfg`
 (see the [coverage matrix](boards.md#openocd-target-file-coverage)). The MSDK's OpenOCD and the ADI fork build used here have those.
 
@@ -94,7 +95,7 @@ Fix: use an OpenOCD that has the file.
 
 OpenOCD loaded its files but found no debug adapter. A board that is not attached to WSL is the first thing to rule out.
 On WSL `Error: libusb initialization failed: Other error` may appear just before it.
-Both lines appeared here with no board attached; other causes with a board attached were not checked.
+Both lines appeared here when run without a board; other causes with a board attached were not tried.
 
 1. In WSL run `lsusb`. You should see the debugger (for example `ARM DAPLink CMSIS-DAP`). If not, the board is not attached.
 2. On Windows run `usbipd list` and check that the board's `STATE` is `Attached`; if not, run
@@ -102,7 +103,32 @@ Both lines appeared here with no board attached; other causes with a board attac
 3. The attachment is lost when you unplug the board, reboot, or restart WSL. Replug, or try another cable (some are charge-only) or port.
 4. Use the board's debug USB port, not a power-only one.
 
-If `lsusb` shows the debugger and the error remains, that is not covered here (a permission or adapter problem was not checked).
+If `lsusb` shows the debugger and the error remains, that is not covered here (an adapter problem was not tried; for permission errors see the next entry).
+
+## Access denied / permission error opening the probe
+
+**Untested** (no board was available). Use this entry if OpenOCD reports an access or permission error opening the USB probe,
+instead of `unable to find a matching CMSIS-DAP device`, and `lsusb` already shows the probe.
+
+OpenOCD ships a udev rules file, `contrib/60-openocd.rules`. In the ADI fork it is in your clone: `~/adi-openocd/contrib/60-openocd.rules`.
+What the file contains (read from a recent checkout of the fork's default branch; the tag in this guide was not read separately):
+
+- Its header says "Copy this file to /etc/udev/rules.d/" and to refresh with `udevadm control --reload`.
+- Its entries (for USB, tty and hidraw devices, listed by VID:PID) set `MODE="660", GROUP="plugdev", TAG+="uaccess"`.
+- It has no entry for VID `0d28` (the DAPLink-style example used in this guide). If your probe's VID:PID from `lsusb` is not in the file,
+  add a line in the same format (**untested**).
+
+Install and reload the rules (**untested**, needs `sudo`):
+
+```bash
+sudo cp ~/adi-openocd/contrib/60-openocd.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+Then unplug and re-attach the board (`usbipd attach ...`) and try again. This needs udev to be running in your WSL distribution.
+Whether it is running on your setup was not checked here, and no upstream document is cited for enabling it.
+If udev is not running on your WSL, run the flash command with `sudo -E` as a last resort (**untested**):
+`sudo -E env "PATH=$PATH" west flash ...` (`env "PATH=$PATH"` keeps your venv's `west` on the path).
 
 ## `libncurses.so.5: cannot open shared object file` (or `libtinfo.so.5`)
 

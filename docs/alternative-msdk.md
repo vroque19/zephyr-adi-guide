@@ -21,6 +21,9 @@ ls ~/MaximSDK/Tools/OpenOCD/bin/openocd
 
 The board must be attached as in [Connect your board to WSL](../README.md#connect-your-board-to-wsl).
 
+You also need the helper script `scripts/flash-msdk.sh`. Get it as in
+[Optional helper scripts](../README.md#optional-helper-scripts) (clone this repository and set `GUIDE_DIR`).
+
 ## Flash with the script
 
 Build first, from `~/zephyrproject/zephyr` with the venv active:
@@ -32,14 +35,14 @@ west build -p always -b apard32690/max32690/m4 samples/hello_world
 Then flash. `TARGET` is required: it is the OpenOCD target file name without `.cfg`.
 
 ```bash
-TARGET=max32690 ~/path/to/zephyr-adi-guide/scripts/flash-msdk.sh
+TARGET=max32690 "$GUIDE_DIR/scripts/flash-msdk.sh"
 ```
 
 To use another board, change `TARGET` (and build for that board). Two examples:
 
 ```bash
-TARGET=max32690 ~/path/to/zephyr-adi-guide/scripts/flash-msdk.sh
-TARGET=max32655 ~/path/to/zephyr-adi-guide/scripts/flash-msdk.sh
+TARGET=max32690 "$GUIDE_DIR/scripts/flash-msdk.sh"
+TARGET=max32655 "$GUIDE_DIR/scripts/flash-msdk.sh"
 ```
 
 The MSDK also has `Tools/OpenOCD/share/openocd/scripts`. OpenOCD finds files there even with `-s Tools/OpenOCD/scripts`, and the script
@@ -68,7 +71,7 @@ It runs the MSDK's `openocd` by full path with `-s "$MSDK_DIR/Tools/OpenOCD/scri
 steps as Zephyr's board file: `init`, `targets`, `reset init`, `flash write_image erase <hex>`, `reset run`, `shutdown`.
 
 You do not need to remove or replace any other `openocd` on your system: because the script passes
-the full path and `-s`, the MSDK's binary only reads the MSDK's own scripts. See below for what was checked.
+the full path and `-s`, the MSDK's binary only reads the MSDK's own scripts. See below for what ran without a board.
 
 ## Why `west flash` can't be used
 
@@ -90,11 +93,11 @@ The MSDK's prints `Open On-Chip Debugger (Analog Devices 0.12.0-1.0.0-7)  OpenOC
 `~/MaximSDK/Tools/OpenOCD/openocd` is a symlink to `~/MaximSDK/Tools/OpenOCD/bin/openocd` (checked with `ls -l`), so both are the same binary.
 The script uses the `bin/` path.
 
-The Zephyr SDK 0.17.4 `openocd` has no `target/max32690.cfg` (checked on one machine; not re-run for this page), so
+The Zephyr SDK 0.17.4 `openocd` has no `target/max32690.cfg` (ran without a board on one machine; not re-run for this page), so
 `Can't find target/max32690.cfg` is the error you get if that binary is the one that runs. `which -a openocd` only shows
-which binaries your `PATH` finds and in what order. The notes this guide started from fixed that error by deleting the system
+which binaries your `PATH` finds and in what order. Some older instructions fix that error by deleting the system
 `openocd` and its scripts and putting the MSDK's first on `PATH`. That is not needed with `scripts/flash-msdk.sh`.
-What was checked (no board needed):
+What ran without a board:
 
 ```bash
 ~/MaximSDK/Tools/OpenOCD/bin/openocd -s ~/MaximSDK/Tools/OpenOCD/scripts \
@@ -120,7 +123,7 @@ which openocd
 ## What was tested
 
 - The script's error paths (unset `TARGET`, missing hex, missing `openocd`, unknown target), and its exact `openocd`
-  arguments against a stub, for `max32690` and `max32655`.
+  arguments against a stand-in `openocd` (a test script, not the real tool), for `max32690` and `max32655`.
 - The script against the real MSDK `openocd` with `TARGET=max32690` and a dummy hex file: it loaded the target file and
   stopped at `unable to find a matching CMSIS-DAP device`, as expected with no board.
 - **Untested:** flashing a real board with this script, and `INTERFACE` values other than `cmsis-dap` on real hardware.
