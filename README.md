@@ -20,7 +20,7 @@ The examples use the APARD32690, but you can swap in your own board.
 | Board used | APARD32690 (`apard32690/max32690/m4`, revision D) |
 | MSDK | Install the current release from ADI. No version file is shipped; the one tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
 
-Every command below was run from scratch in a clean shell (venv, `west init`, `west update`, SDK install, build) except those marked **untested**.
+The venv, `west init`, `west update`, pip install, `west zephyr-export` and the build were run from scratch in a clean shell. The SDK install was run once (a real download, with no 1.0.x SDK present) and re-run later as a no-op. Anything marked **untested** was not run.
 
 ## Prerequisites
 
@@ -106,7 +106,7 @@ cd ~/zephyrproject/zephyr
 west sdk install --gnu-toolchains arm-zephyr-eabi
 ```
 
-With no other options it installs into `~/zephyr-sdk-1.0.1` (per `west sdk install -h`).
+By default it installs into `~/zephyr-sdk-<version>`, here `~/zephyr-sdk-1.0.1` (observed; `-b` and `-d` change this, see `west sdk install -h`).
 Nothing else needs to be set up: the build finds the SDK on its own.
 
 ### 5. Build hello_world
@@ -114,7 +114,7 @@ Nothing else needs to be set up: the build finds the SDK on its own.
 Find your board name:
 
 ```bash
-west boards | grep -i apard
+west boards --format "{name}" | grep -i apard
 ```
 
 Build for the APARD32690's Cortex-M4 core (`<board>/<soc>/<core>`). This uses the
