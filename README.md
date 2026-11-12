@@ -11,7 +11,8 @@ The examples use the APARD32690, but you can swap in your own board.
 
 **Status:** the Zephyr build steps ran on Ubuntu 24.04 WSL (**built**). Steps that need a board, `sudo` or a
 Windows Administrator shell have **not been run**: they are marked **untested**. OpenOCD checks that need no board are
-described as "ran without a board". No board has been flashed with this guide yet.
+described as "ran without a board". Nothing has been flashed to a board yet; OpenOCD has been probed read-only with a
+MAX78000-class board attached (**probed with a board**: `init` and `targets` only, no flash write or reset).
 
 ## Quick start
 
@@ -69,13 +70,14 @@ Something broke? See [Troubleshooting](#troubleshooting).
 | west | 1.5.0 |
 | Python | 3.12.3 |
 | Board built for | APARD32690 (`apard32690/max32690/m4`, revision D). Also built (not flashed): `max78000evkit/max78000/m4`, `max32655evkit/max32655/m4`, `max78000fthr/max78000/m4` |
-| ADI OpenOCD fork | tag `0.12.0-1.4.0` (commit `ad75bfb79b509634b92646b9e65b958f3ea1d8bf`), built and installed to a temporary prefix (a throwaway install folder); `openocd --version` printed `Open On-Chip Debugger (PKGVERSION)  OpenOCD 0.12.0 (<build date>)`. The text `(PKGVERSION)` is printed literally by the fork build |
+| ADI OpenOCD fork | tag `0.12.0-1.4.0` (commit `ad75bfb79b509634b92646b9e65b958f3ea1d8bf`), built and installed to a temporary prefix (a throwaway install folder); `openocd --version` printed `Open On-Chip Debugger (PKGVERSION)  OpenOCD 0.12.0 (<build date>)`. The text `(PKGVERSION)` is printed literally by the fork build. That temporary build was also **probed with a board** (read-only, `init` and `targets` with `max78000.cfg` on a MAX78000-class board): it connected, see [Probed with a board](docs/boards.md#probed-with-a-board) |
 | MSDK (alternative path only) | Install the current release from ADI. No version file is shipped |
 | MSDK toolchain / OpenOCD (alternative path only) | The MSDK tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
 
 The venv, `west init`, `west update`, pip install, `west zephyr-export` and the build were run from scratch in a clean shell. The SDK install was run once (a real download, with no 1.0.x SDK present) and re-run later as a no-op. Anything marked **untested** was not run.
 
 Words used in this guide for status: **built** (a build succeeded here), **ran without a board** (OpenOCD ran here with nothing attached),
+**probed with a board** (OpenOCD connected to a board read-only: `init` and `targets` only, nothing was flashed or reset),
 **untested** (needs a board, `sudo` or an Administrator shell, and was not run).
 
 ## Which OpenOCD do I need?
@@ -218,7 +220,8 @@ That is the file you will flash in the next sections.
 
 WSL cannot see USB devices on its own. [usbipd-win](https://github.com/dorssel/usbipd-win)
 shares a Windows USB device with WSL. Everything in this section needs the board, so it is
-all **untested** here (the usbipd flags were checked against `usbipd --help` of version 5.3.0 only).
+**untested** here, except the detection checks in step 4, which were **observed with a board** that was already attached
+(the `bind` and `attach` commands themselves were not run in that session; the usbipd flags were checked against `usbipd --help` of version 5.3.0 only).
 
 ### 1. Install usbipd-win (Windows)
 
@@ -280,24 +283,28 @@ Do this before flashing. An unattached board is the usual reason `west flash` fa
 lsusb
 ```
 
-You should see a new line for the debugger (the exact text depends on your board). This example line is
-illustrative, not captured from a real board. Your probe's VID:PID may differ:
+You should see a new line for the debugger. **Observed with a board** (a MAX78000-class board with an on-board DAPLink probe, already attached):
 
 ```text
-Bus 001 Device 002: ID 0d28:0204 ARM DAPLink CMSIS-DAP
+Bus 001 Device 002: ID 0d28:0204 NXP ARM mbed
 ```
 
-The serial port normally shows up as `/dev/ttyACM0` (sometimes `ttyUSB0`):
+The text after the ID is the USB vendor/product string, so it depends on the probe firmware (this one is not `ARM DAPLink CMSIS-DAP`).
+`udevadm info` reported the model as `DAPLink_CMSIS-DAP`. On Windows, `usbipd list` showed this probe as `0d28:0204`, with the device text
+`USB Mass Storage Device, USB Serial Device (COMx), USB In...` and `STATE` `Attached`.
+
+The serial port showed up as `/dev/ttyACM0` (sometimes `ttyUSB0`), and `dmesg` printed `cdc_acm ...: ttyACM0: USB ACM device`:
 
 ```bash
 ls /dev | grep -E '^tty(ACM|USB)'
-dmesg | grep -i tty
+dmesg | grep -i -E 'cdc_acm|ttyACM'
 ```
 
-If `dmesg` prints a permission error, use `sudo dmesg | grep -i tty`.
+If `dmesg` prints a permission error, use `sudo dmesg | grep -i -E 'cdc_acm|ttyACM'`.
 
 If `lsusb` shows the probe but OpenOCD later reports an access or permission error opening it (instead of `unable to find a matching CMSIS-DAP device`),
-you probably need a udev rule: see [Access denied / permission error](docs/troubleshooting.md#access-denied--permission-error-opening-the-probe) (**untested**).
+you may need a udev rule: see [Access denied / permission error](docs/troubleshooting.md#access-denied--permission-error-opening-the-probe).
+With the user in group `plugdev` and udev running, OpenOCD opened this probe as a normal user without `sudo` and without a `0d28`-specific rule.
 
 If you see nothing new, the board is not attached. Go back to `usbipd list` on Windows,
 check that `STATE` says `Attached`, and run the `attach` command again.

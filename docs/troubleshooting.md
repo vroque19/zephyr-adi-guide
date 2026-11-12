@@ -71,11 +71,17 @@ What ran without a board attached:
   then the same `FATAL ERROR` line.
 - Ran without a board: for a MAX78000 board, Zephyr SDK 1.0.1's OpenOCD printed `Can't find target/max78000.cfg` before `FATAL ERROR`.
 
-**Untested with a board:** behavior with a board attached, and whether `max32690` boards flash with Zephyr SDK 1.0.1's OpenOCD,
-were not tried.
+**Probed with a board** (read-only: `init` and `targets` only; a MAX78000-class board was attached, nothing was flashed or reset; see
+[Probed with a board](boards.md#probed-with-a-board)):
+
+- Zephyr SDK 1.0.1's OpenOCD with `max32690.cfg` connected to the probe and a Cortex-M4 (state `running`). This shows the SDK's OpenOCD can talk to this probe with a config it has.
+  It does not show that a MAX32690 board connects or flashes.
+- Zephyr SDK 1.0.1's OpenOCD with `max78000.cfg` still printed `Can't find target/max78000.cfg` with the board attached.
+
+**Untested with a board:** flashing with any OpenOCD, and whether `max32690` boards flash with Zephyr SDK 1.0.1's OpenOCD.
 
 In the author's experience plain `west flash` with the Zephyr SDK's own OpenOCD did not work for these boards; the fork is the supported path in this guide.
-This guide did not verify that with a board; the measured facts are above and in the [coverage matrix](boards.md#openocd-target-file-coverage).
+This guide did not verify that with `west flash` on a board: the missing `max78000.cfg` above is a possible explanation for MAX78000 boards, an inference only. The measured facts are above and in the [coverage matrix](boards.md#openocd-target-file-coverage).
 If the wrong OpenOCD runs, see [Already have an OpenOCD installed?](../README.md#already-have-an-openocd-installed-make-sure-the-right-one-runs).
 
 Fix: for boards whose cfg your SDK's OpenOCD lacks,
@@ -101,9 +107,9 @@ Fix: use an OpenOCD that has the file.
 
 OpenOCD loaded its files but found no debug adapter. A board that is not attached to WSL is the first thing to rule out.
 On WSL `Error: libusb initialization failed: Other error` may appear just before it.
-Both lines appeared here when run without a board; other causes with a board attached were not tried.
+Both lines appeared here when run without a board. With a board attached, the same probe commands connected instead (see [Probed with a board](boards.md#probed-with-a-board)); other causes were not tried.
 
-1. In WSL run `lsusb`. You should see the debugger (for example `ARM DAPLink CMSIS-DAP`). If not, the board is not attached.
+1. In WSL run `lsusb`. You should see the debugger. Observed with a board: `ID 0d28:0204 NXP ARM mbed` (the text depends on the probe firmware). If not, the board is not attached.
 2. On Windows run `usbipd list` and check that the board's `STATE` is `Attached`; if not, run
    `usbipd attach --wsl --busid <BUSID>` again. See [Connect your board to WSL](../README.md#connect-your-board-to-wsl).
 3. The attachment is lost when you unplug the board, reboot, or restart WSL. Replug, or try another cable (some are charge-only) or port.
@@ -113,7 +119,7 @@ If `lsusb` shows the debugger and the error remains, that is not covered here (a
 
 ## Access denied / permission error opening the probe
 
-**Untested** (no board was available). Use this entry if OpenOCD reports an access or permission error opening the USB probe,
+Use this entry if OpenOCD reports an access or permission error opening the USB probe,
 instead of `unable to find a matching CMSIS-DAP device`, and `lsusb` already shows the probe.
 
 OpenOCD ships a udev rules file, `contrib/60-openocd.rules`. In the ADI fork it is in your clone: `~/adi-openocd/contrib/60-openocd.rules`.
@@ -121,8 +127,13 @@ What the file contains (read from a recent checkout of the fork's default branch
 
 - Its header says "Copy this file to /etc/udev/rules.d/" and to refresh with `udevadm control --reload`.
 - Its entries (for USB, tty and hidraw devices, listed by VID:PID) set `MODE="660", GROUP="plugdev", TAG+="uaccess"`.
-- It has no entry for VID `0d28` (the DAPLink-style example used in this guide). If your probe's VID:PID from `lsusb` is not in the file,
-  add a line in the same format (**untested**).
+- It has no entry for VID `0d28` (the DAPLink-style example used in this guide).
+
+**Observed with a board:** on a WSL with systemd on (`systemd=true` in `/etc/wsl.conf`, `systemd-udevd` active), with the user in group `plugdev` and the probe's USB node
+`crw-rw---- root plugdev`, OpenOCD opened the `0d28:0204` probe as a normal user without `sudo`, even though the installed `60-openocd.rules` had no line for VID `0d28`.
+So you may not need a rule at all. The example line below is only for setups where the probe's node is not accessible to you
+(everything below this point was **untested**: no rule was added or reloaded and `sudo` was not used).
+If your probe's VID:PID from `lsusb` is not in the file, add a line in the same format.
 
 Example line for a CMSIS-DAP/DAPLink probe with VID `0d28` and PID `0204`, in the same format as the file's own lines
 (**untested**; change the VID:PID to your probe's `lsusb` output):
@@ -152,7 +163,7 @@ sudo usermod -aG plugdev "$USER"
 ```
 
 A new group membership applies after you log in again; on WSL, run `wsl --shutdown` in PowerShell, then reopen WSL and attach the board again.
-This needs udev to be running in your WSL distribution. Whether it is running on your setup was not checked here, and no upstream
+This needs udev to be running in your WSL distribution. On the setup observed it was (see above); no upstream
 document is cited for enabling it.
 If udev is not running on your WSL, run the flash command with `sudo -E` as a last resort (**untested**):
 `sudo -E env "PATH=$PATH" west flash ...` (`env "PATH=$PATH"` keeps your venv's `west` on the path).
@@ -198,7 +209,7 @@ and `~/MaximSDK/Tools/OpenOCD/scripts`). Replace `<chip>` with your target (`max
      -c 'puts "allow_low_pwr_dbg count: [llength [info commands allow_low_pwr_dbg]]"' -c shutdown
    ```
 
-Results here for `max32690`: the second column is the `find` check, the third the `info commands` check above (run after loading the
+Results here for `max32690` (run without a board; the `allow_low_pwr_dbg` counts were identical when re-checked with a board attached, host-only and without `init`): the second column is the `find` check, the third the `info commands` check above (run after loading the
 cmsis-dap and target files, which end with `Error: unable to find a matching CMSIS-DAP device` with no board). The fork row is the
 build at `/usr/local/bin/openocd` (built 2026-03-11, no tag in its version string), not necessarily tag `0.12.0-1.4.0`.
 

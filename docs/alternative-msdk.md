@@ -127,4 +127,6 @@ which openocd
   arguments against a stand-in `openocd` (a test script, not the real tool), for `max32690` and `max32655`.
 - The script against the real MSDK `openocd` with `TARGET=max32690` and a dummy hex file: it loaded the target file and
   stopped at `unable to find a matching CMSIS-DAP device`, as expected with no board.
+- **Probed with a board** (read-only, `init` and `targets` only, MAX78000-class board attached): the MSDK's `openocd` with the MSDK's `max78000.cfg` and `max32690.cfg`
+  connected to the probe and a Cortex-M4 (see [Probed with a board](boards.md#probed-with-a-board)). The script itself was not run with a board, and nothing was flashed.
 - **Untested:** flashing a real board with this script, and `INTERFACE` values other than `cmsis-dap` on real hardware.

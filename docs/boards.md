@@ -12,8 +12,8 @@ The [main guide](../README.md) uses the APARD32690. To use another ADI board you
 
 ## Boards built
 
-Only boards that were built here are listed. **No board was ever flashed**: no hardware was attached
-for any row, so the last column is "no" for all of them. `<ZEPHYR_DIR>` is `~/zephyrproject/zephyr`.
+Only boards that were built here are listed. **No board was ever flashed**: the last column is "no" for all of them.
+A MAX78000-class board was attached once for read-only probing only (see [Probed with a board](#probed-with-a-board)). `<ZEPHYR_DIR>` is `~/zephyrproject/zephyr`.
 
 | Zephyr board name | OpenOCD target cfg (config file) | Built | Flashed on hardware |
 | --- | --- | --- | --- |
@@ -21,6 +21,27 @@ for any row, so the last column is "no" for all of them. `<ZEPHYR_DIR>` is `~/ze
 | `max78000evkit/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
 | `max32655evkit/max32655/m4` | `max32655` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
 | `max78000fthr/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
+
+### Probed with a board
+
+OpenOCD was run read-only against one attached board, as a normal user: `-c 'source [find interface/cmsis-dap.cfg]' -c 'source [find target/<chip>.cfg]' -c init -c targets -c shutdown`.
+Nothing was flashed, written or reset. The board was a MAX78000-class Cortex-M4 board with an on-board DAPLink probe (SWD `DPIDR 0x2ba01477`).
+A cell says `connected` when OpenOCD printed `Examination succeed` or a target table, or `Can't find` when the cfg is missing.
+
+| OpenOCD | `max78000.cfg` | `max32690.cfg` |
+| --- | --- | --- |
+| ADI fork, tag `0.12.0-1.4.0` (the README's pinned build, temporary prefix) | connected (`Examination succeed`) | not run |
+| ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11) | connected | connected |
+| Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | `Can't find target/max78000.cfg` | connected (target state `running`) |
+| MSDK (`Analog Devices 0.12.0-1.0.0-7`) | connected | connected |
+
+What this shows and does not show:
+
+- The attached board is a MAX78000-class board, so `max78000.cfg` is the matching file. `max32690.cfg` connecting on it only shows that the OpenOCD can talk to this probe
+  and a Cortex-M4 with that cfg. It does **not** show that MAX32690 boards flash or connect.
+- Zephyr SDK 1.0.1's OpenOCD fails on `max78000.cfg` with the board attached, exactly as without one: the file is missing.
+- `allow_low_pwr_dbg` (checked host-only, after loading the cfg, without `init`): present in the fork build and Zephyr SDK 1.0.1, absent in the MSDK.
+- Flashing is still **untested**: no flash write, reset or `allow_low_pwr_dbg` run was done.
 
 ### OpenOCD target file coverage
 
