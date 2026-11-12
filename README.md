@@ -9,8 +9,8 @@ and adds the parts it leaves out for ADI boards: sharing the USB debugger with W
 It assumes you already have WSL with Ubuntu. Installing WSL is out of scope.
 The examples use the MAX78000FTHR, the only board verified here. For other boards, change the board name: see [docs/boards.md](docs/boards.md).
 
-**Status:** verified on one board, a MAX78000FTHR, with `samples/hello_world`: the pinned ADI OpenOCD fork (built into a temporary prefix under `/tmp`)
-wrote the program with `west flash` and with both helper scripts, and the program printed over serial after `west flash --openocd` and a reset. Everything else is **untested** unless marked otherwise.
+**Status:** checked on one board, a MAX78000FTHR, with `samples/hello_world`. `west flash --openocd` with the pinned ADI OpenOCD fork (built into a temporary prefix under `/tmp`, not `$HOME/.local`)
+wrote the program (**flashed**), and the program printed over serial after an explicit `reset run`. The two helper scripts also wrote it (running not re-confirmed over serial). Everything else is **untested** unless marked otherwise.
 What was run, where and when is in the [test log](docs/test-log.md).
 
 | Status word | Meaning |
@@ -43,7 +43,7 @@ This is the path that was run on the MAX78000FTHR. For other boards, change `-b`
    in an Administrator PowerShell, once: `usbipd bind --busid <BUSID>`, and in any PowerShell: `usbipd attach --wsl --busid <BUSID>`.
    **(untested: needs a Windows Administrator shell; the board was already attached when it was probed)**
 4. Build ADI's OpenOCD fork at the pinned tag and install it to `$HOME/.local` ([details](#build-adi-openocd)).
-   **(built and flashed with a temporary prefix under `/tmp`; `$HOME/.local` was not used; the `apt install` needs `sudo` and is untested)**
+   **(built; the `apt install` needs `sudo` and is untested)**
 
    ```bash
    sudo apt install build-essential git autoconf automake libtool pkg-config \
@@ -57,7 +57,9 @@ This is the path that was run on the MAX78000FTHR. For other boards, change `-b`
    make install
    ```
 
-5. Flash from the Zephyr directory, in a shell where the venv is active **(flashed on a MAX78000FTHR only)**:
+5. Open a second terminal and start the serial reader first: `ls /dev/ttyACM*`, then `stty -F /dev/ttyACM0 115200 raw -echo; cat /dev/ttyACM0`.
+   On the test machine the node was world-readable (`crw-rw-rw- root dialout`); if you get "Permission denied" on another setup, adding yourself to `dialout` is the usual fix (**untested**).
+   Then, in the first terminal, flash from the Zephyr directory with the venv active **(`west flash` wrote to a MAX78000FTHR; other boards untested)**:
 
    ```bash
    export OPENOCD_PREFIX="$HOME/.local"
@@ -72,7 +74,9 @@ auto erase enabled
 wrote 24576 bytes from file <path>/zephyr.hex in 1.17s (20.5 KiB/s)
 ```
 
-To see the program run, follow [Verify it runs](#verify-it-runs). The serial output is these two lines:
+`west flash` ends with `wrote N bytes`; the banner below was observed over serial after an explicit `reset run`, so reset once (or replug) if you see nothing.
+Reset the board as in [Verify it runs](#verify-it-runs). The verified run used a temporary prefix under `/tmp` for `OPENOCD_PREFIX`, not `$HOME/.local`.
+The serial reader then shows these two lines:
 
 ```text
 *** Booting Zephyr OS build v4.5.0 ***
@@ -111,7 +115,6 @@ Something broke? See [Troubleshooting](#troubleshooting).
 | MSDK toolchain / OpenOCD (alternative path only) | The MSDK tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
 
 The venv, `west init`, `west update`, pip install, `west zephyr-export` and the build were run from scratch in a clean shell. The SDK install was run once (a real download, with no 1.0.x SDK present) and re-run later as a no-op.
-The flash test used a temporary install prefix under `/tmp` for `OPENOCD_PREFIX`, not `$HOME/.local` or `/usr/local`.
 
 ## Which OpenOCD do I need?
 
@@ -520,7 +523,7 @@ For other boards it is an inference from the [coverage table](docs/boards.md#ope
 If another OpenOCD runs instead of the fork, see [Already have an OpenOCD installed?](#already-have-an-openocd-installed-make-sure-the-right-one-runs).
 
 **Flashed (one board, one sample):** a MAX78000FTHR was flashed with `samples/hello_world` for `max78000fthr/max78000/m4` using the
-pinned fork in a temporary prefix under `/tmp`. The `west flash --openocd` command above wrote the program and the board then printed `hello_world` over serial (after a `reset run`).
+pinned fork. The `west flash --openocd` command above wrote the program, and the board printed `hello_world` over serial after an explicit `reset run` (the banner appeared twice around the `reset run`; cause not investigated).
 `scripts/flash-adi-fork.sh` and `scripts/flash-msdk.sh` (MSDK OpenOCD) were also observed to write (`wrote 24576 bytes`; the first exited 0);
 running was not re-confirmed over serial for them.
 Not run (**untested**): other boards, the `sudo` install into `/usr/local`, the `west config build.cmake-args` route, creating a udev rule, and the usbipd `bind`/`attach` commands.
@@ -553,7 +556,7 @@ The FTHR's devicetree sets the console speed to 115200 (`current-speed = <115200
      -c init -c 'reset run' -c shutdown
    ```
 
-Expected output in the first terminal (it appeared after the `reset run`, observed):
+Expected output in the first terminal (observed around the `reset run`; the banner appeared twice, cause not investigated):
 
 ```text
 *** Booting Zephyr OS build v4.5.0 ***

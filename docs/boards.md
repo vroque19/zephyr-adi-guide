@@ -12,7 +12,7 @@ The [main guide](../README.md) uses the MAX78000FTHR (the only board flashed). T
 
 ## Boards built
 
-Only boards that were built here are listed. **Only one board was flashed, the MAX78000FTHR** (**flashed**: OpenOCD printed `wrote N bytes`; one board, one sample). The program was confirmed running over serial after the `west flash --openocd` run with the pinned fork, followed by `reset run`. The other rows are "no".
+Only boards that were built here are listed. **Only one board was flashed, the MAX78000FTHR** (**flashed**: OpenOCD printed `wrote N bytes`; one board, one sample). The program was confirmed running over serial after the `west flash --openocd` run with the pinned fork, followed by `reset run` (the banner appeared twice around the `reset run`; cause not investigated). The other rows are "no".
 That board was first probed read-only (see [Probed with a board](#probed-with-a-board)). `<ZEPHYR_DIR>` is `~/zephyrproject/zephyr`.
 
 | Zephyr board name | OpenOCD target cfg (config file) | Built | Flashed on hardware |
