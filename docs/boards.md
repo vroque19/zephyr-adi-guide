@@ -30,15 +30,16 @@ A cell says `connected` when OpenOCD printed `Examination succeed` or a target t
 
 | OpenOCD | `max78000.cfg` | `max32690.cfg` |
 | --- | --- | --- |
-| ADI fork, tag `0.12.0-1.4.0` (the README's pinned build, temporary prefix) | connected (`Examination succeed`) | not run |
-| ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11) | connected | connected |
-| Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | `Can't find target/max78000.cfg` | connected (target state `running`) |
-| MSDK (`Analog Devices 0.12.0-1.0.0-7`) | connected | connected |
+| ADI fork, tag `0.12.0-1.4.0` (the README's pinned build, temporary prefix) | connected (`Examination succeed`; probed once, build then deleted, cannot be re-run from this repo) | not run |
+| ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11) | connected | connected (config-only check; board is MAX78000-class) |
+| Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | `Can't find target/max78000.cfg` | connected (config-only check; board is MAX78000-class; target state `running`) |
+| MSDK (`Analog Devices 0.12.0-1.0.0-7`) | connected | connected (config-only check; board is MAX78000-class) |
 
 What this shows and does not show:
 
 - The attached board is a MAX78000-class board, so `max78000.cfg` is the matching file. `max32690.cfg` connecting on it only shows that the OpenOCD can talk to this probe
   and a Cortex-M4 with that cfg. It does **not** show that MAX32690 boards flash or connect.
+- The fork builds printed target state `unknown` while the SDK and MSDK printed `running`; this was not investigated.
 - Zephyr SDK 1.0.1's OpenOCD fails on `max78000.cfg` with the board attached, exactly as without one: the file is missing.
 - `allow_low_pwr_dbg` (checked host-only, after loading the cfg, without `init`): present in the fork build and Zephyr SDK 1.0.1, absent in the MSDK.
 - Flashing is still **untested**: no flash write, reset or `allow_low_pwr_dbg` run was done.
@@ -66,7 +67,7 @@ No `max32666.cfg` exists in any of them (Zephyr maps MAX32666 boards to `max3266
 Zephyr SDK 1.0.1 has only the `max32620`, `max32625`, `max3263x`, `max32660`, `max32662`, `max32670`, `max32672`, `max32675`,
 `max32680` and `max32690` files (plus `max32xxx_common.cfg`).
 
-So for boards whose file your SDK's OpenOCD lacks (`max32650`, `max32655`, `max32657`, `max32658`, `max32665`, `max78000`, `max78002`; no board was attached)
+So for boards whose file your SDK's OpenOCD lacks (`max32650`, `max32655`, `max32657`, `max32658`, `max32665`, `max78000`, `max78002`; those checks ran without a board)
 `west flash` with that OpenOCD cannot load the target (the same kind of failure as in [Troubleshooting](troubleshooting.md); to confirm your case, read the log). Use the [ADI fork](../README.md#build-adi-openocd)
 or the [MSDK alternative](alternative-msdk.md) (the MSDK also lacks `max32657` and `max32658`: the fork only). For the `max32690` family with SDK 1.0.1 the file and the
 `allow_low_pwr_dbg` command are both present, so the need for the fork was not shown (**untested with a board**).

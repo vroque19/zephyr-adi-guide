@@ -70,14 +70,14 @@ Something broke? See [Troubleshooting](#troubleshooting).
 | west | 1.5.0 |
 | Python | 3.12.3 |
 | Board built for | APARD32690 (`apard32690/max32690/m4`, revision D). Also built (not flashed): `max78000evkit/max78000/m4`, `max32655evkit/max32655/m4`, `max78000fthr/max78000/m4` |
-| ADI OpenOCD fork | tag `0.12.0-1.4.0` (commit `ad75bfb79b509634b92646b9e65b958f3ea1d8bf`), built and installed to a temporary prefix (a throwaway install folder); `openocd --version` printed `Open On-Chip Debugger (PKGVERSION)  OpenOCD 0.12.0 (<build date>)`. The text `(PKGVERSION)` is printed literally by the fork build. That temporary build was also **probed with a board** (read-only, `init` and `targets` with `max78000.cfg` on a MAX78000-class board): it connected, see [Probed with a board](docs/boards.md#probed-with-a-board) |
+| ADI OpenOCD fork | tag `0.12.0-1.4.0` (commit `ad75bfb79b509634b92646b9e65b958f3ea1d8bf`), built and installed to a temporary prefix (a throwaway install folder); `openocd --version` printed `Open On-Chip Debugger (PKGVERSION)  OpenOCD 0.12.0 (<build date>)`. The text `(PKGVERSION)` is printed literally by the fork build. That temporary build connected with `max78000.cfg` when probed with a MAX78000-class board (read-only `init` and `targets`; the build was then deleted and cannot be re-run from this repo), see [Probed with a board](docs/boards.md#probed-with-a-board) |
 | MSDK (alternative path only) | Install the current release from ADI. No version file is shipped |
 | MSDK toolchain / OpenOCD (alternative path only) | The MSDK tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
 
 The venv, `west init`, `west update`, pip install, `west zephyr-export` and the build were run from scratch in a clean shell. The SDK install was run once (a real download, with no 1.0.x SDK present) and re-run later as a no-op. Anything marked **untested** was not run.
 
 Words used in this guide for status: **built** (a build succeeded here), **ran without a board** (OpenOCD ran here with nothing attached),
-**probed with a board** (OpenOCD connected to a board read-only: `init` and `targets` only, nothing was flashed or reset),
+**probed with a board** (checked read-only with a board attached: OpenOCD `init` and `targets` only, or `lsusb`/`usbipd`/udev lookups; nothing was flashed or reset),
 **untested** (needs a board, `sudo` or an Administrator shell, and was not run).
 
 ## Which OpenOCD do I need?
@@ -220,7 +220,7 @@ That is the file you will flash in the next sections.
 
 WSL cannot see USB devices on its own. [usbipd-win](https://github.com/dorssel/usbipd-win)
 shares a Windows USB device with WSL. Everything in this section needs the board, so it is
-**untested** here, except the detection checks in step 4, which were **observed with a board** that was already attached
+**untested** here, except the detection checks in step 4, which were **probed with a board** that was already attached
 (the `bind` and `attach` commands themselves were not run in that session; the usbipd flags were checked against `usbipd --help` of version 5.3.0 only).
 
 ### 1. Install usbipd-win (Windows)
@@ -283,7 +283,7 @@ Do this before flashing. An unattached board is the usual reason `west flash` fa
 lsusb
 ```
 
-You should see a new line for the debugger. **Observed with a board** (a MAX78000-class board with an on-board DAPLink probe, already attached):
+You should see a new line for the debugger. **Probed with a board** (a MAX78000-class board with an on-board DAPLink probe, already attached):
 
 ```text
 Bus 001 Device 002: ID 0d28:0204 NXP ARM mbed
@@ -304,7 +304,7 @@ If `dmesg` prints a permission error, use `sudo dmesg | grep -i -E 'cdc_acm|ttyA
 
 If `lsusb` shows the probe but OpenOCD later reports an access or permission error opening it (instead of `unable to find a matching CMSIS-DAP device`),
 you may need a udev rule: see [Access denied / permission error](docs/troubleshooting.md#access-denied--permission-error-opening-the-probe).
-With the user in group `plugdev` and udev running, OpenOCD opened this probe as a normal user without `sudo` and without a `0d28`-specific rule.
+With the user in group `plugdev` and udev running, OpenOCD opened this probe as a normal user without `sudo`: the installed rules file's generic `CMSIS-DAP` product-string line matched (`udevadm test`: group `plugdev`, mode 0660). A VID:PID line is needed only if your probe's product string lacks `CMSIS-DAP`.
 
 If you see nothing new, the board is not attached. Go back to `usbipd list` on Windows,
 check that `STATE` says `Attached`, and run the `attach` command again.

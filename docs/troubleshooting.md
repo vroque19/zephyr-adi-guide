@@ -109,7 +109,7 @@ OpenOCD loaded its files but found no debug adapter. A board that is not attache
 On WSL `Error: libusb initialization failed: Other error` may appear just before it.
 Both lines appeared here when run without a board. With a board attached, the same probe commands connected instead (see [Probed with a board](boards.md#probed-with-a-board)); other causes were not tried.
 
-1. In WSL run `lsusb`. You should see the debugger. Observed with a board: `ID 0d28:0204 NXP ARM mbed` (the text depends on the probe firmware). If not, the board is not attached.
+1. In WSL run `lsusb`. You should see the debugger. Probed with a board: `ID 0d28:0204 NXP ARM mbed` (the text depends on the probe firmware). If not, the board is not attached.
 2. On Windows run `usbipd list` and check that the board's `STATE` is `Attached`; if not, run
    `usbipd attach --wsl --busid <BUSID>` again. See [Connect your board to WSL](../README.md#connect-your-board-to-wsl).
 3. The attachment is lost when you unplug the board, reboot, or restart WSL. Replug, or try another cable (some are charge-only) or port.
@@ -126,17 +126,20 @@ OpenOCD ships a udev rules file, `contrib/60-openocd.rules`. In the ADI fork it 
 What the file contains (read from a recent checkout of the fork's default branch; the tag in this guide was not read separately):
 
 - Its header says "Copy this file to /etc/udev/rules.d/" and to refresh with `udevadm control --reload`.
-- Its entries (for USB, tty and hidraw devices, listed by VID:PID) set `MODE="660", GROUP="plugdev", TAG+="uaccess"`.
-- It has no entry for VID `0d28` (the DAPLink-style example used in this guide).
+- Its entries (for USB, tty and hidraw devices, mostly listed by VID:PID) set `MODE="660", GROUP="plugdev", TAG+="uaccess"`.
+- It has no VID:PID entry for VID `0d28` (the DAPLink-style example used in this guide), but it ends with a catch-all line under `# CMSIS-DAP compatible adapters`:
+  `ATTRS{product}=="*CMSIS-DAP*", MODE="660", GROUP="plugdev", TAG+="uaccess"`. I checked this with `grep` in a local checkout of the fork (`contrib/60-openocd.rules`, commit `8d754a249`, not the pinned tag)
+  and in the `/etc/udev/rules.d/60-openocd.rules` installed on the machine used here.
 
-**Observed with a board:** on a WSL with systemd on (`systemd=true` in `/etc/wsl.conf`, `systemd-udevd` active), with the user in group `plugdev` and the probe's USB node
-`crw-rw---- root plugdev`, OpenOCD opened the `0d28:0204` probe as a normal user without `sudo`, even though the installed `60-openocd.rules` had no line for VID `0d28`.
-So you may not need a rule at all. The example line below is only for setups where the probe's node is not accessible to you
+**Probed with a board:** on a WSL with systemd on (`systemd=true` in `/etc/wsl.conf`, `systemd-udevd` active), with the user in group `plugdev` and the probe's USB node
+`crw-rw---- root plugdev`, OpenOCD opened the `0d28:0204` probe as a normal user without `sudo`. This worked because the installed `60-openocd.rules` has the generic line above
+(it matches product strings containing `CMSIS-DAP`; this probe's product string is `DAPLink_CMSIS-DAP`), not because of a `0d28` line:
+`udevadm test` on the probe printed `/etc/udev/rules.d/60-openocd.rules:158 GROUP 46` and `:158 MODE 0660`.
+So you need a VID:PID line only if your probe's product string does not contain `CMSIS-DAP`, or your rules file lacks the generic line
 (everything below this point was **untested**: no rule was added or reloaded and `sudo` was not used).
-If your probe's VID:PID from `lsusb` is not in the file, add a line in the same format.
 
-Example line for a CMSIS-DAP/DAPLink probe with VID `0d28` and PID `0204`, in the same format as the file's own lines
-(**untested**; change the VID:PID to your probe's `lsusb` output):
+Example line for a probe with VID `0d28` and PID `0204`, in the same format as the file's own lines. For DAPLink-style probes whose product string contains `CMSIS-DAP`
+it is probably redundant; keep it for other cases (**untested**; change the VID:PID to your probe's `lsusb` output):
 
 ```text
 ATTRS{idVendor}=="0d28", ATTRS{idProduct}=="0204", MODE="660", GROUP="plugdev", TAG+="uaccess"
