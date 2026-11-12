@@ -1,18 +1,18 @@
 # Using a different board
 
-The [main guide](../README.md) uses the APARD32690. To use another ADI board you change the Zephyr board name. The MSDK script needs one more value:
+The [main guide](../README.md) uses the MAX78000FTHR (the only board flashed). To use another ADI board you change the Zephyr board name. The MSDK script needs one more value:
 
 | Value | Used by | Example |
 | --- | --- | --- |
-| Zephyr board name | `west build -b <board>` | `apard32690/max32690/m4` |
-| OpenOCD target file (no `.cfg`) | `TARGET=` of [`scripts/flash-msdk.sh`](alternative-msdk.md) | `max32690` |
+| Zephyr board name | `west build -b <board>` | `max78000fthr/max78000/m4` |
+| OpenOCD target file (no `.cfg`) | `TARGET=` of [`scripts/flash-msdk.sh`](alternative-msdk.md) | `max78000` |
 
 `TARGET=` is only for the MSDK script. For `west flash` (the ADI fork path) you only change the board name
 (`west build -b`): the runner (the part of `west flash` that drives OpenOCD) derives the target file from the Zephyr board itself (see below).
 
 ## Boards built
 
-Only boards that were built here are listed. **Only one board was flashed, the MAX78000FTHR** (**flashed**: one board, one sample, `hello_world` seen on the serial port); the other rows are "no".
+Only boards that were built here are listed. **Only one board was flashed, the MAX78000FTHR** (**flashed**: OpenOCD printed `wrote N bytes`; one board, one sample). The program was confirmed running over serial after the `west flash --openocd` run with the pinned fork, followed by `reset run`. The other rows are "no".
 That board was first probed read-only (see [Probed with a board](#probed-with-a-board)). `<ZEPHYR_DIR>` is `~/zephyrproject/zephyr`.
 
 | Zephyr board name | OpenOCD target cfg (config file) | Built | Flashed on hardware |
@@ -20,17 +20,17 @@ That board was first probed read-only (see [Probed with a board](#probed-with-a-
 | `apard32690/max32690/m4` | `max32690` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
 | `max78000evkit/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
 | `max32655evkit/max32655/m4` | `max32655` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
-| `max78000fthr/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | yes (**flashed**: pinned fork `west flash`, `scripts/flash-adi-fork.sh`, `scripts/flash-msdk.sh`) |
+| `max78000fthr/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | yes (**flashed** with the pinned fork `west flash`, confirmed running over serial; `scripts/flash-adi-fork.sh` and `scripts/flash-msdk.sh` also wrote, running not re-confirmed) |
 
 ### Probed with a board
 
 OpenOCD was run read-only against one attached board, as a normal user: `-c 'source [find interface/cmsis-dap.cfg]' -c 'source [find target/<chip>.cfg]' -c init -c targets -c shutdown`.
-Nothing was flashed, written or reset. The board was a MAX78000-class Cortex-M4 board with an on-board DAPLink probe (SWD `DPIDR 0x2ba01477`).
+These probes flashed, wrote and reset nothing. The board was a MAX78000-class Cortex-M4 board with an on-board DAPLink probe (SWD `DPIDR 0x2ba01477`).
 A cell says `connected` when OpenOCD printed `Examination succeed` or a target table, or `Can't find` when the cfg is missing.
 
 | OpenOCD | `max78000.cfg` | `max32690.cfg` |
 | --- | --- | --- |
-| ADI fork, tag `0.12.0-1.4.0` (the README's pinned build, temporary prefix) | connected (`Examination succeed`; probed once, build then deleted, cannot be re-run from this repo) | not run |
+| ADI fork, tag `0.12.0-1.4.0` (the README's pinned build, temporary prefix) | connected (`Examination succeed`; an earlier build of the tag, see the [test log](test-log.md)) | not run |
 | ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11) | connected | connected (config-only check; board is MAX78000-class) |
 | Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | `Can't find target/max78000.cfg` | connected (config-only check; board is MAX78000-class; target state `running`) |
 | MSDK (`Analog Devices 0.12.0-1.0.0-7`) | connected | connected (config-only check; board is MAX78000-class) |
@@ -49,8 +49,8 @@ What this shows and does not show:
 
 Which `target/<chip>.cfg` each OpenOCD has. Ran on one machine without a board, with
 `openocd -s <scripts> -c 'puts [find target/<chip>.cfg]' -c shutdown` (Y = found, N = `Can't find target/<chip>.cfg`).
-The fork column was measured on a fork build at `/usr/local`, not necessarily tag `0.12.0-1.4.0` from the README. The temporary build of
-tag `0.12.0-1.4.0` was separately run when building the fork for those three files only: `max32690.cfg`, `max32655.cfg` and `max78000.cfg` are present.
+The fork column was measured on a fork build installed in `/usr/local` on the test machine, not necessarily tag `0.12.0-1.4.0` from the README. The build of
+tag `0.12.0-1.4.0` was checked separately for those three files only: `max32690.cfg`, `max32655.cfg` and `max78000.cfg` are present.
 
 | Target cfg | MSDK (`Analog Devices 0.12.0-1.0.0-7`, 2023-09-27) | ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11, no tag in its version string) | Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | Zephyr SDK 0.17.4 (`0.12.0-01018-gb89d626c6`) |
 | --- | --- | --- | --- | --- |
@@ -90,8 +90,9 @@ Build for the other board by changing the board name (list them with
 `west boards --format "{name}"`; a board with several cores shows them as `<board>/<soc>/<core>`):
 
 ```bash
+cd ~/zephyrproject/zephyr
 west boards --format "{name} {qualifiers}" | grep -i max78000
-west build -p always -b max78000evkit/max78000/m4 samples/hello_world
+west build -p always -b max78000evkit/max78000/m4 samples/hello_world -d build
 ```
 
 For `west flash`, the board directory under `<ZEPHYR_DIR>/boards/adi/<board>/` has a `board.cmake` (Zephyr's per-board flash settings).

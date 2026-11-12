@@ -7,21 +7,28 @@ It follows the official
 [Zephyr Getting Started](https://docs.zephyrproject.org/latest/develop/getting_started/index.html)
 and adds the parts it leaves out for ADI boards: sharing the USB debugger with WSL and flashing with OpenOCD.
 It assumes you already have WSL with Ubuntu. Installing WSL is out of scope.
-The examples use the APARD32690, but you can swap in your own board.
+The examples use the MAX78000FTHR, the only board verified here. For other boards, change the board name: see [docs/boards.md](docs/boards.md).
 
-**Status:** the Zephyr build steps ran on Ubuntu 24.04 WSL (**built**). Steps that need a board, `sudo` or a
-Windows Administrator shell have **not been run**: they are marked **untested**. OpenOCD checks that need no board are
-described as "ran without a board". Flashing has been done on ONE board, a MAX78000FTHR, with `samples/hello_world`, using the pinned fork
-(`west flash` and `scripts/flash-adi-fork.sh`) and the MSDK script (**flashed**); nothing else was flashed.
-Before that, OpenOCD was probed read-only with the board attached (**probed with a board**).
+**Status:** verified on one board, a MAX78000FTHR, with `samples/hello_world`: the pinned ADI OpenOCD fork (built into a temporary prefix under `/tmp`)
+wrote the program with `west flash` and with both helper scripts, and the program printed over serial after `west flash --openocd` and a reset. Everything else is **untested** unless marked otherwise.
+What was run, where and when is in the [test log](docs/test-log.md).
+
+| Status word | Meaning |
+| --- | --- |
+| **built** | A build succeeded here. |
+| **ran without a board** | OpenOCD ran here with nothing attached. |
+| **probed with a board** | Checked read-only with a board attached (OpenOCD `init` and `targets` only, or `lsusb`/`usbipd`/udev lookups). Nothing was flashed or reset. |
+| **flashed** | A flash write to a board succeeded (OpenOCD printed `wrote N bytes`). "Confirmed running" means the board then printed `hello_world` over serial; that was observed only after the `west flash --openocd` run with the pinned fork, followed by `reset run`. |
+| **untested** | Needs a board, `sudo` or an Administrator shell, and was not run. |
 
 ## Quick start
 
-The short path. Steps 3, 4 and 5 are required: step 4 builds the OpenOCD that step 5 uses.
+The short path. All steps are required, in order: step 4 builds the OpenOCD that step 5 uses.
+This is the path that was run on the MAX78000FTHR. For other boards, change `-b`: see [docs/boards.md](docs/boards.md).
 
-1. Get a debug probe if your board needs one, then install the host packages: [Prerequisites](#prerequisites). **(untested: needs `sudo`)**
+1. Get a debug probe if your board needs one (the MAX78000FTHR has one on board), then install the host packages: [Prerequisites](#prerequisites). **(untested: needs `sudo`)**
    Hardware: see [Hardware you need](#hardware-you-need).
-2. Set up Zephyr v4.5.0 and build `hello_world`:
+2. Set up Zephyr v4.5.0 and build `hello_world` for the MAX78000FTHR **(built)**:
 
    ```bash
    python3 -m venv ~/zephyrproject/.venv && source ~/zephyrproject/.venv/bin/activate
@@ -29,20 +36,48 @@ The short path. Steps 3, 4 and 5 are required: step 4 builds the OpenOCD that st
    west init --mr v4.5.0 ~/zephyrproject && cd ~/zephyrproject && west update
    west zephyr-export && west packages pip --install
    cd zephyr && west sdk install --gnu-toolchains arm-zephyr-eabi
-   west build -p always -b apard32690/max32690/m4 samples/hello_world
+   west build -p always -b max78000fthr/max78000/m4 samples/hello_world
    ```
 
-3. Attach the board's debug probe to WSL with usbipd-win: [Connect your board to WSL](#connect-your-board-to-wsl).
-   **(untested: needs the board and a Windows Administrator shell)**
-4. Build ADI's OpenOCD fork in `~/adi-openocd`, installed to `$HOME/.local`: [Build ADI OpenOCD](#build-adi-openocd) (run the build commands and `make install` from that section).
-   **(built and used to flash a MAX78000FTHR with a temporary prefix under `/tmp`; `$HOME/.local` and `/usr/local` not used; `sudo` only if you choose `/usr/local`)**
-5. Flash from the Zephyr directory, in a shell where the venv is active: **(flashed on a MAX78000FTHR only; other boards untested)**
+3. Attach the board's debug probe to WSL with usbipd-win ([details](#connect-your-board-to-wsl)). First find the board's `<BUSID>` with `usbipd list`, then
+   in an Administrator PowerShell, once: `usbipd bind --busid <BUSID>`, and in any PowerShell: `usbipd attach --wsl --busid <BUSID>`.
+   **(untested: needs a Windows Administrator shell; the board was already attached when it was probed)**
+4. Build ADI's OpenOCD fork at the pinned tag and install it to `$HOME/.local` ([details](#build-adi-openocd)).
+   **(built and flashed with a temporary prefix under `/tmp`; `$HOME/.local` was not used; the `apt install` needs `sudo` and is untested)**
 
    ```bash
-   cd ~/zephyrproject/zephyr && source ~/zephyrproject/.venv/bin/activate
+   sudo apt install build-essential git autoconf automake libtool pkg-config \
+     libusb-1.0-0-dev libjim-dev libjaylink-dev libhidapi-dev
+   git clone --recurse-submodules --branch 0.12.0-1.4.0 https://github.com/analogdevicesinc/openocd ~/adi-openocd
+   cd ~/adi-openocd
    export OPENOCD_PREFIX="$HOME/.local"
+   ./bootstrap
+   ./configure --prefix="$OPENOCD_PREFIX"
+   make -j"$(nproc)"
+   make install
+   ```
+
+5. Flash from the Zephyr directory, in a shell where the venv is active **(flashed on a MAX78000FTHR only)**:
+
+   ```bash
+   export OPENOCD_PREFIX="$HOME/.local"
+   cd ~/zephyrproject/zephyr && source ~/zephyrproject/.venv/bin/activate
    west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts"
    ```
+
+Expected result: OpenOCD prints these two lines (the byte count and speed vary with the program and the board):
+
+```text
+auto erase enabled
+wrote 24576 bytes from file <path>/zephyr.hex in 1.17s (20.5 KiB/s)
+```
+
+To see the program run, follow [Verify it runs](#verify-it-runs). The serial output is these two lines:
+
+```text
+*** Booting Zephyr OS build v4.5.0 ***
+Hello World! max78000fthr/max78000/m4
+```
 
 Something broke? See [Troubleshooting](#troubleshooting).
 
@@ -70,17 +105,13 @@ Something broke? See [Troubleshooting](#troubleshooting).
 | Zephyr SDK | 1.0.1 (minimal SDK, host tools and `arm-zephyr-eabi` toolchain only) |
 | west | 1.5.0 |
 | Python | 3.12.3 |
-| Board built for | APARD32690 (`apard32690/max32690/m4`, revision D). Also built (not flashed): `max78000evkit/max78000/m4`, `max32655evkit/max32655/m4`. Built and **flashed**: `max78000fthr/max78000/m4` (MAX78000FTHR, `samples/hello_world`; this is the only board flashed) |
-| ADI OpenOCD fork | tag `0.12.0-1.4.0` (commit `ad75bfb79b509634b92646b9e65b958f3ea1d8bf`), built and installed to a temporary prefix (a throwaway install folder); `openocd --version` printed `Open On-Chip Debugger (PKGVERSION)  OpenOCD 0.12.0 (<build date>)`. The text `(PKGVERSION)` is printed literally by the fork build. Built from the README steps and used to flash the MAX78000FTHR (**flashed**): `openocd --version` printed `Open On-Chip Debugger (PKGVERSION)  OpenOCD 0.12.0 (2026-11-12-23:07)` with the literal `(PKGVERSION)`. That flash test used a temporary install prefix under `/tmp` (`OPENOCD_PREFIX`), not `$HOME/.local` or `/usr/local`. An earlier build of the same tag had connected with `max78000.cfg` when probed read-only, see [Probed with a board](docs/boards.md#probed-with-a-board) |
+| Boards built | `max78000fthr/max78000/m4` (built and **flashed**, the only board flashed), `apard32690/max32690/m4` (revision D), `max78000evkit/max78000/m4`, `max32655evkit/max32655/m4` (built, not flashed): see [docs/boards.md](docs/boards.md) |
+| ADI OpenOCD fork | tag `0.12.0-1.4.0` (commit `ad75bfb79b509634b92646b9e65b958f3ea1d8bf`); built from the steps below and used to flash the MAX78000FTHR. The version line prints the literal text `(PKGVERSION)`. Details: [test log](docs/test-log.md) |
 | MSDK (alternative path only) | Install the current release from ADI. No version file is shipped |
 | MSDK toolchain / OpenOCD (alternative path only) | The MSDK tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
 
-The venv, `west init`, `west update`, pip install, `west zephyr-export` and the build were run from scratch in a clean shell. The SDK install was run once (a real download, with no 1.0.x SDK present) and re-run later as a no-op. Anything marked **untested** was not run.
-
-Words used in this guide for status, in this order: **built** (a build succeeded here), **ran without a board** (OpenOCD ran here with nothing attached),
-**probed with a board** (checked read-only with a board attached: OpenOCD `init` and `targets` only, or `lsusb`/`usbipd`/udev lookups; nothing was flashed or reset),
-**flashed** (flashed to a board and confirmed running: `hello_world` printed over the serial port; one board only, the MAX78000FTHR),
-**untested** (needs a board, `sudo` or an Administrator shell, and was not run).
+The venv, `west init`, `west update`, pip install, `west zephyr-export` and the build were run from scratch in a clean shell. The SDK install was run once (a real download, with no 1.0.x SDK present) and re-run later as a no-op.
+The flash test used a temporary install prefix under `/tmp` for `OPENOCD_PREFIX`, not `$HOME/.local` or `/usr/local`.
 
 ## Which OpenOCD do I need?
 
@@ -119,14 +150,14 @@ dpkg -s git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget \
   g++-multilib libsdl2-dev libmagic1t64 usbutils 2>&1 | grep "not installed"
 ```
 
-No output means you are set. (On Ubuntu 24.04 the package `libmagic1` is named `libmagic1t64`, so the check lists it that way.)
+No output means you are set. (On Ubuntu 24.04 the package is named `libmagic1t64`, and the install list below uses that name too.)
 Otherwise install them (**untested**, needs `sudo`):
 
 ```bash
 sudo apt update
 sudo apt install --no-install-recommends git cmake ninja-build gperf \
   ccache dfu-util device-tree-compiler wget python3-dev python3-venv python3-tk \
-  xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1 usbutils
+  xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1t64 usbutils
 ```
 
 `usbutils` provides `lsusb`, which you need later to check the USB board.
@@ -197,26 +228,23 @@ Nothing else needs to be set up: the build finds the SDK on its own.
 Find your board name:
 
 ```bash
-west boards --format "{name}" | grep -i apard
+west boards --format "{name}" | grep -i max78000
 ```
 
-Build for the APARD32690's Cortex-M4 core (`<board>/<soc>/<core>`). This uses the
-board's default revision (D):
+Build for the MAX78000FTHR's Cortex-M4 core (`<board>/<soc>/<core>`):
 
 ```bash
 cd ~/zephyrproject/zephyr
-west build -p always -b apard32690/max32690/m4 samples/hello_world
+west build -p always -b max78000fthr/max78000/m4 samples/hello_world
 ```
 
-To pin the revision explicitly, use `apard32690@D/max32690/m4` (it builds the same thing).
-
-You should end with a memory summary (about 19 KB flash for hello_world) and the file below:
+You should end with a memory summary (18540 bytes of flash, 7.07%, for hello_world on this board) and the file below:
 
 ```bash
 ls build/zephyr/zephyr.hex
 ```
 
-That is the file you will flash in the next sections.
+That is the file you will flash in the next sections. For other boards, change the board name: see [docs/boards.md](docs/boards.md).
 
 ## Connect your board to WSL
 
@@ -321,7 +349,7 @@ For `max32690` boards the file and the `allow_low_pwr_dbg` command are present t
 [analogdevicesinc/openocd](https://github.com/analogdevicesinc/openocd). This guide builds that fork
 and points `west flash` at it.
 
-The build, `make install` into a temporary prefix and `openocd --version` were run here (**built**), and that build flashed a MAX78000FTHR (**flashed**). The `sudo`
+The build, `make install` into a temporary prefix and `openocd --version` were run here (**built**), and that build flashed a MAX78000FTHR (**flashed**; see the [test log](docs/test-log.md)). The `sudo`
 install into `/usr/local` and flashing any other board are **untested**.
 
 ### 1. Build dependencies
@@ -447,19 +475,19 @@ Then pick one option. Safest first:
 
    ```bash
    west config build.cmake-args -- "-DOPENOCD=$OPENOCD_PREFIX/bin/openocd -DOPENOCD_DEFAULT_PATH=$OPENOCD_PREFIX/share/openocd/scripts"
-   west build -p always -b apard32690/max32690/m4 samples/hello_world
+   west build -p always -b max78000fthr/max78000/m4 samples/hello_world
    ```
 
    `$OPENOCD_PREFIX` expands when you run the command, and the result is stored literally. Use an absolute path, not a variable that may be unset later.
    This changes your west configuration for every build; undo it with `west config -d build.cmake-args`.
-3. A shell alias in your `~/.bashrc` or `~/.zshrc` (the author uses one in `~/.zshrc`; it works but is less clean; **untested** by this guide).
+3. A shell alias in your `~/.bashrc` or `~/.zshrc` (less clean than the options above; **untested** by this guide).
    Use your own prefix. `OPENOCD_PREFIX` must be exported in the shell where the alias runs (the single quotes defer expansion until you run it):
 
    ```bash
    alias wflash='west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts"'
    ```
 
-4. Last resort, used by the author on machines with an older OpenOCD installed system-wide (**untested** by this guide).
+4. Last resort for machines with an older OpenOCD installed system-wide (**untested** by this guide).
    **Warning: this modifies system directories. Prefer the options above, and back up first.** Find the old binary with `whereis openocd`,
    rename it, back up the old script directory, and copy the new scripts over it:
 
@@ -483,32 +511,60 @@ west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PR
 ```
 
 Zephyr's board file makes OpenOCD run `init`, `targets`, `reset init`, `flash write_image erase ...zephyr.hex`,
-`reset run` and `shutdown`, so on success the board is flashed and starts running the program on its own.
+`reset run` and `shutdown`, so on success the board is flashed and should start running the program on its own.
 
-In the author's experience plain `west flash` with the Zephyr SDK's own OpenOCD did not work for these boards; the fork is the supported path in this guide.
-This was reproduced for the MAX78000FTHR with the board attached: plain `west flash -d <build>` ran the SDK 1.0.1 OpenOCD, which printed
-`Can't find target/max78000.cfg` followed by `FATAL ERROR: command exited with status 1`, and nothing was flashed (**flashed** path: the fork, below).
+Plain `west flash` (without `--openocd`) uses the Zephyr SDK's own OpenOCD. It was reported not to work for these boards, and that was reproduced for the MAX78000FTHR with the board attached: the SDK 1.0.1 OpenOCD printed `Can't find target/max78000.cfg` and
+`FATAL ERROR: command exited with status 1`, and nothing was flashed
+([troubleshooting entry](docs/troubleshooting.md#west-flash-fails-with-fatal-error-command-exited-with-status-1)).
 For other boards it is an inference from the [coverage table](docs/boards.md#openocd-target-file-coverage) of which target files each OpenOCD has.
 If another OpenOCD runs instead of the fork, see [Already have an OpenOCD installed?](#already-have-an-openocd-installed-make-sure-the-right-one-runs).
 
-**Flashed (one board, one sample):** a MAX78000FTHR was flashed with `samples/hello_world` built for `max78000fthr/max78000/m4`, using the
-pinned fork built into a temporary prefix under `/tmp` and the `west flash` command above (also with `scripts/flash-adi-fork.sh`, and with `scripts/flash-msdk.sh` using the MSDK's OpenOCD).
-Boards other than the MAX78000FTHR were not flashed (**untested**), nor were the `sudo` install into `/usr/local`, the `west config build.cmake-args` route, creating a udev rule and the usbipd `bind`/`attach` commands.
+**Flashed (one board, one sample):** a MAX78000FTHR was flashed with `samples/hello_world` for `max78000fthr/max78000/m4` using the
+pinned fork in a temporary prefix under `/tmp`. The `west flash --openocd` command above wrote the program and the board then printed `hello_world` over serial (after a `reset run`).
+`scripts/flash-adi-fork.sh` and `scripts/flash-msdk.sh` (MSDK OpenOCD) were also observed to write (`wrote 24576 bytes`; the first exited 0);
+running was not re-confirmed over serial for them.
+Not run (**untested**): other boards, the `sudo` install into `/usr/local`, the `west config build.cmake-args` route, creating a udev rule, and the usbipd `bind`/`attach` commands.
 
 What success looked like: OpenOCD printed `SWD DPIDR 0x2ba01477`, `Cortex-M4 r0p1 processor detected`, `Examination succeed`, then
 `auto erase enabled` and `wrote 24576 bytes from file <path>/zephyr.hex in 1.17s (20.5 KiB/s)` (the pattern is `wrote <N> bytes from file <path> in <time>s (<rate> KiB/s)`), then `shutdown command invoked`.
 Two lines `Warn : Flash protection not supported on this device` and `Warn : [max32xxx.cpu] target was in unknown state when halt was requested` were normal here.
 The messages `** Programming Started **`, `** Programming Finished **` and `** Verified OK **` come from OpenOCD's separate
 `program` command (`src/flash/startup.tcl`), which Zephyr's command list above does not use, so do not expect them.
-To see the program run, open the board's serial port at 115200 baud (the FTHR's devicetree sets `current-speed = <115200>`); for example, before or while flashing:
-`stty -F /dev/ttyACM0 115200 raw -echo; cat /dev/ttyACM0`. The output was `*** Booting Zephyr OS build v4.5.0 ***` and `Hello World! max78000fthr/max78000/m4`
-(`Hello World! <board>`; it appeared after the flash and again after a reset). Terminal programs are out of scope.
-What was run earlier: with no board, `west flash` accepted these flags and ran the fork's `openocd`,
-which stopped at `unable to find a matching CMSIS-DAP device` (**ran without a board**).
+Before a board was attached, `west flash` with these flags ran the fork's `openocd`, which stopped at
+`unable to find a matching CMSIS-DAP device` (**ran without a board**).
+
+### Verify it runs
+
+`hello_world` prints over the board's UART, which shows up in WSL as `/dev/ttyACM0` on the MAX78000FTHR (see [Check it from WSL](#4-check-it-from-wsl)).
+On the test machine it was `crw-rw-rw- root dialout` (observed), so no extra permission was needed. Start the reader first, then reset the board.
+The FTHR's devicetree sets the console speed to 115200 (`current-speed = <115200>`).
+
+1. In one terminal, start the reader:
+
+   ```bash
+   stty -F /dev/ttyACM0 115200 raw -echo; cat /dev/ttyACM0
+   ```
+
+2. In a second terminal, reset the board with OpenOCD (observed to work):
+
+   ```bash
+   "$OPENOCD_PREFIX/bin/openocd" -s "$OPENOCD_PREFIX/share/openocd/scripts" \
+     -c 'source [find interface/cmsis-dap.cfg]' -c 'source [find target/max78000.cfg]' \
+     -c init -c 'reset run' -c shutdown
+   ```
+
+Expected output in the first terminal (it appeared after the `reset run`, observed):
+
+```text
+*** Booting Zephyr OS build v4.5.0 ***
+Hello World! max78000fthr/max78000/m4
+```
+
+For other boards the last line is `Hello World! <board>`. Press Ctrl+C to stop `cat`. Terminal programs and serial setup for other boards are not covered.
 
 ### Optional helper scripts
 
-This guide ships two helper scripts: `scripts/flash-adi-fork.sh` (the command above, with a default prefix) and
+The `west flash` command above is the main path. This guide also ships two optional helper scripts: `scripts/flash-adi-fork.sh` (the same command, with a default prefix) and
 `scripts/flash-msdk.sh` (for the [MSDK alternative](docs/alternative-msdk.md)). Get them by cloning this repository.
 `<REPO_URL>` is this repository's clone URL (fill in the URL shown on the repository's page):
 
@@ -532,7 +588,7 @@ The script reads `OPENOCD_PREFIX` and defaults to `$HOME/.local` if it is unset.
 (as above), or pass it inline: `OPENOCD_PREFIX=/usr/local "$GUIDE_DIR/scripts/flash-adi-fork.sh"`.
 Extra arguments go straight to `west flash`. If `$OPENOCD_PREFIX/bin/openocd` or `$OPENOCD_PREFIX/share/openocd/scripts` is missing, or `west` is not on your `PATH`
 (venv not active), the script prints a message on stderr and exits with status 1.
-The script was run against a stand-in `west` (a test script, not the real tool) to check its arguments (**ran without a board**).
+The script was run against a stand-in `west` (a test script, not the real tool) to check its arguments (**ran without a board**). With the board attached it also flashed the MAX78000FTHR (`wrote 24576 bytes`, exit 0; running was not re-confirmed over serial; see the [test log](docs/test-log.md)).
 
 ### Alternative: MSDK OpenOCD
 
@@ -549,7 +605,7 @@ Change the Zephyr board name (`west build -b ...`). For `west flash`, the runner
 
 ## Not covered yet
 
-Viewing the board's UART output (`hello_world` prints over UART) is not covered yet: check your board's docs for the serial port and baud rate.
+Terminal programs and serial setup for other boards are not covered.
 
 ## Troubleshooting
 

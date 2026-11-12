@@ -9,6 +9,10 @@
 
 ## `west flash` fails with `FATAL ERROR: command exited with status 1`
 
+> **MAX78000FTHR, max78000, max32655, max78002, max32650, max32665, max32657 or max32658 boards: do this.**
+> Build the [ADI OpenOCD fork](../README.md#build-adi-openocd), set `OPENOCD_PREFIX` to its install prefix, then run from `<ZEPHYR_DIR>`:
+> `west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts"` (flashed on a MAX78000FTHR; the other chips are untested).
+
 Symptom (paths shortened; `<SDK>` is your Zephyr SDK, `<ZEPHYR_DIR>` your Zephyr checkout, `~/zephyrproject/zephyr` in the guide):
 
 ```text
@@ -67,7 +71,7 @@ What ran without a board attached:
 - Ran without a board: `west flash` for the APARD32690 with Zephyr SDK 1.0.1's own OpenOCD (`0.12.0-01050-g91bd278a5`) printed
   `Error: libusb initialization failed: Other error` and `Error: unable to find a matching CMSIS-DAP device`,
   then the `FATAL ERROR: command exited with status 1` line (the same failure as the example). The cfg and command exist there.
-- Ran without a board: the same with a fork build already on this machine (`/usr/local/bin/openocd`; `west flash --openocd ... --openocd-search ...`): `Error: unable to find a matching CMSIS-DAP device`,
+- Ran without a board: the same with an earlier fork build installed in `/usr/local` on the test machine (`/usr/local/bin/openocd`; `west flash --openocd ... --openocd-search ...`): `Error: unable to find a matching CMSIS-DAP device`,
   then the same `FATAL ERROR` line.
 - Ran without a board: for a MAX78000 board, Zephyr SDK 1.0.1's OpenOCD printed `Can't find target/max78000.cfg` before `FATAL ERROR`.
 
@@ -80,12 +84,12 @@ What ran without a board attached:
 
 **Reproduced with a board (MAX78000FTHR attached):** plain `west flash -d <build>` with no flags used the Zephyr SDK 1.0.1 OpenOCD pinned in `runners.yaml`
 and printed `-- west flash: using runner openocd`, `Flashing file: <build>/zephyr/zephyr.hex`, the banner `Open On-Chip Debugger 0.12.0-01050-g91bd278a5 (2026-03-25-02:24)`,
-`Can't find target/max78000.cfg` and `FATAL ERROR: command exited with status 1: ...`. This is case (b) below: the reason is on the terminal, no `build/openocd.log` was created, and nothing was flashed.
-The cause is the missing `max78000.cfg` in that OpenOCD. The fix, the [ADI fork](../README.md#build-adi-openocd), was **flashed** (the same board, via `west flash --openocd ... --openocd-search ...`).
+`Can't find target/max78000.cfg` and `FATAL ERROR: command exited with status 1: ...`. This is case (b) above: the reason is on the terminal, no `build/openocd.log` was created, and nothing was flashed.
+The cause is the missing `max78000.cfg` in that OpenOCD. The fix is the [ADI fork](../README.md#build-adi-openocd): with it the same board was **flashed** (via `west flash --openocd ... --openocd-search ...`).
 
 **Untested with a board:** whether `max32690` boards flash with Zephyr SDK 1.0.1's OpenOCD.
 
-In the author's experience plain `west flash` with the Zephyr SDK's own OpenOCD did not work for these boards; the fork is the supported path in this guide.
+Plain `west flash` with the Zephyr SDK's own OpenOCD was reported not to work for these boards; the fork is the verified and recommended path in this guide.
 That is reproduced for the MAX78000FTHR (above). The `max32655` error in the example is explained only by analogy (an inference: the SDK's OpenOCD also lacks `max32655.cfg`), not reproduced with a board. The measured facts are above and in the [coverage matrix](boards.md#openocd-target-file-coverage).
 If the wrong OpenOCD runs, see [Already have an OpenOCD installed?](../README.md#already-have-an-openocd-installed-make-sure-the-right-one-runs).
 
@@ -96,7 +100,11 @@ Fix: for boards whose cfg your SDK's OpenOCD lacks,
 
 ## `Can't find target/<chip>.cfg`
 
-Example: `Can't find target/max32690.cfg`. This OpenOCD has no target file for that chip.
+> **MAX78000FTHR, max78000, max32655, max78002, max32650, max32665, max32657 or max32658 boards: do this.**
+> Build the [ADI OpenOCD fork](../README.md#build-adi-openocd), set `OPENOCD_PREFIX` to its install prefix, then run from `<ZEPHYR_DIR>`:
+> `west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts"` (flashed on a MAX78000FTHR; the other chips are untested).
+
+Example (MAX78000FTHR attached, Zephyr SDK 1.0.1's OpenOCD): `Can't find target/max78000.cfg`. This OpenOCD has no target file for that chip.
 
 Ran without a board: the OpenOCD in Zephyr SDK 0.17.4 (`0.12.0-01018-gb89d626c6`) has only `max32620`, `max32625` and `max3263x`
 target files and prints `Can't find target/max32690.cfg`. Zephyr SDK 1.0.1's OpenOCD has `max32690.cfg` but not, for example, `max32655.cfg` or `max78000.cfg`
