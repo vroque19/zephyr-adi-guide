@@ -78,10 +78,15 @@ What ran without a board attached:
   It does not show that a MAX32690 board connects or flashes.
 - Zephyr SDK 1.0.1's OpenOCD with `max78000.cfg` still printed `Can't find target/max78000.cfg` with the board attached.
 
-**Untested with a board:** flashing with any OpenOCD, and whether `max32690` boards flash with Zephyr SDK 1.0.1's OpenOCD.
+**Reproduced with a board (MAX78000FTHR attached):** plain `west flash -d <build>` with no flags used the Zephyr SDK 1.0.1 OpenOCD pinned in `runners.yaml`
+and printed `-- west flash: using runner openocd`, `Flashing file: <build>/zephyr/zephyr.hex`, the banner `Open On-Chip Debugger 0.12.0-01050-g91bd278a5 (2026-03-25-02:24)`,
+`Can't find target/max78000.cfg` and `FATAL ERROR: command exited with status 1: ...`. This is case (b) below: the reason is on the terminal, no `build/openocd.log` was created, and nothing was flashed.
+The cause is the missing `max78000.cfg` in that OpenOCD. The fix, the [ADI fork](../README.md#build-adi-openocd), was **flashed** (the same board, via `west flash --openocd ... --openocd-search ...`).
+
+**Untested with a board:** whether `max32690` boards flash with Zephyr SDK 1.0.1's OpenOCD.
 
 In the author's experience plain `west flash` with the Zephyr SDK's own OpenOCD did not work for these boards; the fork is the supported path in this guide.
-This guide did not verify that with `west flash` on a board: the missing `max78000.cfg` above is a possible explanation for MAX78000 boards, an inference only. The measured facts are above and in the [coverage matrix](boards.md#openocd-target-file-coverage).
+That is reproduced for the MAX78000FTHR (above). The `max32655` error in the example is explained only by analogy (an inference: the SDK's OpenOCD also lacks `max32655.cfg`), not reproduced with a board. The measured facts are above and in the [coverage matrix](boards.md#openocd-target-file-coverage).
 If the wrong OpenOCD runs, see [Already have an OpenOCD installed?](../README.md#already-have-an-openocd-installed-make-sure-the-right-one-runs).
 
 Fix: for boards whose cfg your SDK's OpenOCD lacks,

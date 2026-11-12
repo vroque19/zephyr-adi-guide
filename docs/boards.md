@@ -12,15 +12,15 @@ The [main guide](../README.md) uses the APARD32690. To use another ADI board you
 
 ## Boards built
 
-Only boards that were built here are listed. **No board was ever flashed**: the last column is "no" for all of them.
-A MAX78000-class board was attached once for read-only probing only (see [Probed with a board](#probed-with-a-board)). `<ZEPHYR_DIR>` is `~/zephyrproject/zephyr`.
+Only boards that were built here are listed. **Only one board was flashed, the MAX78000FTHR** (**flashed**: one board, one sample, `hello_world` seen on the serial port); the other rows are "no".
+That board was first probed read-only (see [Probed with a board](#probed-with-a-board)). `<ZEPHYR_DIR>` is `~/zephyrproject/zephyr`.
 
 | Zephyr board name | OpenOCD target cfg (config file) | Built | Flashed on hardware |
 | --- | --- | --- | --- |
 | `apard32690/max32690/m4` | `max32690` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
 | `max78000evkit/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
 | `max32655evkit/max32655/m4` | `max32655` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
-| `max78000fthr/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
+| `max78000fthr/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | yes (**flashed**: pinned fork `west flash`, `scripts/flash-adi-fork.sh`, `scripts/flash-msdk.sh`) |
 
 ### Probed with a board
 
@@ -42,7 +42,8 @@ What this shows and does not show:
 - The fork builds printed target state `unknown` while the SDK and MSDK printed `running`; this was not investigated.
 - Zephyr SDK 1.0.1's OpenOCD fails on `max78000.cfg` with the board attached, exactly as without one: the file is missing.
 - `allow_low_pwr_dbg` (checked host-only, after loading the cfg, without `init`): present in the fork build and Zephyr SDK 1.0.1, absent in the MSDK.
-- Flashing is still **untested**: no flash write, reset or `allow_low_pwr_dbg` run was done.
+- The probes above themselves wrote nothing. Afterwards the same board was flashed: only the pinned fork (temporary prefix) and the MSDK script flashed it; the `/usr/local` fork build was
+  not used for flashing, and Zephyr SDK 1.0.1 could not flash a MAX78000 (missing cfg). Flashing the other boards stays **untested**.
 
 ### OpenOCD target file coverage
 

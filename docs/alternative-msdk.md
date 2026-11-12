@@ -128,5 +128,7 @@ which openocd
 - The script against the real MSDK `openocd` with `TARGET=max32690` and a dummy hex file: it loaded the target file and
   stopped at `unable to find a matching CMSIS-DAP device`, as expected with no board.
 - **Probed with a board** (read-only, `init` and `targets` only, MAX78000-class board attached): the MSDK's `openocd` with the MSDK's `max78000.cfg` and `max32690.cfg`
-  connected to the probe and a Cortex-M4 (see [Probed with a board](boards.md#probed-with-a-board)). The script itself was not run with a board, and nothing was flashed.
-- **Untested:** flashing a real board with this script, and `INTERFACE` values other than `cmsis-dap` on real hardware.
+  connected to the probe and a Cortex-M4 (see [Probed with a board](boards.md#probed-with-a-board)).
+- **Flashed:** `TARGET=max78000 scripts/flash-msdk.sh <build>/zephyr/zephyr.hex` flashed a MAX78000FTHR with the MSDK's OpenOCD (`wrote 24576 bytes ... in 1.02s (23.6 KiB/s)`, `shutdown command invoked`). One board, one sample.
+  `west flash` with the MSDK's OpenOCD was not run; it is still expected not to work (inferred, see above).
+- **Untested:** other boards with this script, and `INTERFACE` values other than `cmsis-dap` on real hardware.
