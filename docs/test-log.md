@@ -37,7 +37,7 @@ Build: `west build -p always -b max78000fthr/max78000/m4 samples/hello_world -d 
 | Run | Result |
 | --- | --- |
 | `west flash -d <build> --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts"`, pinned fork | `SWD DPIDR 0x2ba01477`, `Cortex-M4 r0p1 processor detected`, `Examination succeed`, `Warn : [max32xxx.cpu] target was in unknown state when halt was requested`, `halted due to debug-request, current mode: Thread`, two `Warn : Flash protection not supported on this device`, `auto erase enabled`, `wrote 24576 bytes from file <build>/zephyr/zephyr.hex in 1.172077s (20.476 KiB/s)`, a second `SWD DPIDR 0x2ba01477`, `shutdown command invoked` |
-| Serial check after that flash | Reader started (`stty -F /dev/ttyACM0 115200 raw -echo; cat /dev/ttyACM0`), then `openocd ... -c init -c 'reset run' -c shutdown`: `*** Booting Zephyr OS build v4.5.0 ***` and `Hello World! max78000fthr/max78000/m4`, twice around the `reset run` (cause not investigated; the reader was started before the reset) |
+| Serial check after that flash | Reader started (`stty -F /dev/ttyACM0 115200 raw -echo; cat /dev/ttyACM0`; later runs needed a baud toggle, see the container section), then `openocd ... -c init -c 'reset run' -c shutdown`: `*** Booting Zephyr OS build v4.5.0 ***` and `Hello World! max78000fthr/max78000/m4`, twice around the `reset run` (cause not investigated; the reader was started before the reset) |
 | `scripts/flash-adi-fork.sh` (prefix under `/tmp`, `-d <build>`) | `-- west flash: using runner openocd`, `wrote 24576 bytes ... in 1.166665s (20.571 KiB/s)`, exit 0. Running was not re-confirmed over serial |
 | `TARGET=max78000 scripts/flash-msdk.sh <build>/zephyr/zephyr.hex` (MSDK OpenOCD) | `wrote 24576 bytes ... in 1.017537s (23.586 KiB/s)`, `shutdown command invoked`. Running was not re-confirmed over serial |
 | Plain `west flash -d <build>` (SDK 1.0.1 OpenOCD pinned in `runners.yaml`) | `-- west flash: rebuilding`, `ninja: no work to do.`, `-- west flash: using runner openocd`, `Flashing file: <build>/zephyr/zephyr.hex`, the SDK banner, `Can't find target/max78000.cfg`, `FATAL ERROR: command exited with status 1: ...`. No `openocd.log` was created; nothing was flashed |
@@ -61,7 +61,23 @@ The repository's published files were exported into it with `git archive`. This 
 - With the corrected order (`west packages pip --install`, `west zephyr-export`), `west sdk install --gnu-toolchains arm-zephyr-eabi` and
   `west build -p always -b max78000fthr/max78000/m4 samples/hello_world` all exited 0: flash 18540 B, RAM 4712 B, `zephyr.hex` 52263 B, the same as the host build.
 
+### Container steps a) to g)
+
+Clean Ubuntu 24.04 Docker container, user in `sudo`, `plugdev` and `dialout`, board passed through from a WSL2 host. README commands were run verbatim unless noted. Two deviations were forced by a TLS-inspecting corporate proxy: the clone and the `.deb` downloads were done on the host and copied in.
+
+| Step | Command (as run) | Result |
+| --- | --- | --- |
+| a) Quick start step 4 | `apt install` of the build dependencies; clone of the fork (host clone of commit `ad75bfb79b509634b92646b9e65b958f3ea1d8bf` copied in, because `git clone --recurse-submodules` failed on a certificate error); `./bootstrap`, `./configure --prefix="$HOME/.local"`, `make -j"$(nproc)"`, `make install` | All succeeded. `OpenOCD 0.12.0 (2026-11-13-16:36)` with the literal `(PKGVERSION)`; CMSIS-DAP v1 and v2, J-Link and ADI Debug Agent all `yes (auto)` |
+| b) Quick start step 5 | `west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts"` with `OPENOCD_PREFIX=$HOME/.local` | Exit 0; `auto erase enabled`; `wrote 24576 bytes ... in 1.229490s (19.520 KiB/s)`; the same two `Warn : Flash protection not supported on this device` lines |
+| c) Helper script | `scripts/flash-adi-fork.sh` (default prefix `$HOME/.local`) | Exit 0; `wrote 24576 bytes ... in 1.266373s` |
+| d) `/usr/local` | `./bootstrap`, `./configure --prefix=/usr/local`, `make -j`, `sudo make install`, then `west flash --openocd /usr/local/bin/openocd ...` | All exit 0; wrote 24576 bytes; the serial banner was seen after a `reset run` |
+| e) Plain `west flash` | No flags (SDK 1.0.1 OpenOCD pinned in `runners.yaml`) | Exit 1; `Can't find target/max78000.cfg` and `FATAL ERROR: command exited with status 1`; no `build/openocd.log`. Same as on the host |
+| f) MSDK path | MSDK mounted read-only from the host. `~/MaximSDK/Tools/GNUTools/10.3/bin/arm-none-eabi-gdb --version`; then `sudo apt install ./libtinfo5_6.3-2ubuntu0.3_amd64.deb ./libncurses5_6.3-2ubuntu0.3_amd64.deb` (downloaded on the host from the same https URLs); then `TARGET=max78000 scripts/flash-msdk.sh` | gdb first failed with `error while loading shared libraries: libncurses.so.5: cannot open shared object file`; after the install it printed `GNU gdb (GNU Arm Embedded Toolchain 10.3-2021.10) 10.2.90.20210621-git`. The script exited 0 and wrote 24576 bytes in 1.000938s (23.978 KiB/s) |
+| g) Serial | `stty -F /dev/ttyACM0 115200 raw -echo; cat /dev/ttyACM0` after flashing | Garbage bytes (like `dc d9 98 64 fe ...`) in three attempts, from the container and the host, although `stty -a` reported 115200. After `stty -F /dev/ttyACM0 9600 raw -echo; stty -F /dev/ttyACM0 115200 raw -echo` and a `reset run`, the output was correct (`*** Booting Zephyr OS build v4.5.0 ***` / `Hello World! max78000fthr/max78000/m4`, the banner printed twice around the `reset run`). Cause not confirmed |
+
+Observed on a TLS-inspecting proxy only inside Docker: `server certificate verification failed` from git (submodule from `gitlab.zapb.de`) and `cannot verify security.ubuntu.com's certificate ... Self-signed certificate encountered` from wget. The same URLs worked from the WSL distribution.
+
 ## Not run
 
-Other boards (APARD32690, MAX78000EVKIT, MAX32655EVKIT, and every `max32690` or `max32655` flash), `sudo` installs (host packages, `/usr/local` OpenOCD, `/etc/udev/rules.d` changes), the `west config build.cmake-args` route,
-the usbipd `bind` and `attach` commands, `west flash` with the MSDK's OpenOCD, and any other sample than `hello_world`.
+Other boards (APARD32690, MAX78000EVKIT, MAX32655EVKIT, and every `max32690` or `max32655` flash), `sudo` installs on a real WSL install (they ran only in a clean container) and `/etc/udev/rules.d` changes, the `west config build.cmake-args` route,
+the usbipd `bind` and `attach` commands, `west flash` with the MSDK's OpenOCD, creating a udev rule, and any other sample than `hello_world`.

@@ -1,6 +1,8 @@
 # Troubleshooting
 
 - [`west zephyr-export` fails with `ModuleNotFoundError: No module named 'jsonschema'`](#west-zephyr-export-fails-with-modulenotfounderror-no-module-named-jsonschema)
+- [Serial output is garbage](#serial-output-is-garbage)
+- [`server certificate verification failed` behind a corporate proxy](#server-certificate-verification-failed-behind-a-corporate-proxy)
 - [`west flash` fails with `FATAL ERROR: command exited with status 1`](#west-flash-fails-with-fatal-error-command-exited-with-status-1)
 - [`Can't find target/<chip>.cfg`](#cant-find-targetchipcfg)
 - [`Error: unable to find a matching CMSIS-DAP device`](#error-unable-to-find-a-matching-cmsis-dap-device)
@@ -15,6 +17,30 @@ Seen on a fresh Ubuntu 24.04 (clean container) when `west zephyr-export` ran bef
 The cause is that west loads Zephyr's extension commands, which import Python packages that are not installed yet.
 
 Fix: with the venv active, run `west packages pip --install`, then `west zephyr-export`.
+
+## Serial output is garbage
+
+Symptom: `cat /dev/ttyACM0` after `stty -F /dev/ttyACM0 115200 raw -echo` prints random bytes (like `dc d9 98 64 fe ...`) instead of `*** Booting Zephyr OS build v4.5.0 ***`,
+even though `stty -a` reports 115200 baud. Observed on a MAX78000FTHR, from a container and from the host, in three attempts.
+
+Fix (observed to work): force a real baud change first, then reset the board:
+
+```bash
+stty -F /dev/ttyACM0 9600 raw -echo; stty -F /dev/ttyACM0 115200 raw -echo; cat /dev/ttyACM0
+```
+
+The expected lines are the same as in the [Quick start](../README.md#quick-start). The cause is not confirmed: a guess is that `stty` does nothing when the driver already thinks the port is at 115200,
+so the probe's UART bridge keeps another baud rate.
+
+## `server certificate verification failed` behind a corporate proxy
+
+Symptom: `git clone --recurse-submodules` of the OpenOCD fork fails with `server certificate verification failed` (the `libjaylink` submodule is cloned from `https://gitlab.zapb.de`), or
+`wget` fails with `ERROR: cannot verify security.ubuntu.com's certificate ... Self-signed certificate encountered` (for example in the [libncurses entry](#libncursesso5-cannot-open-shared-object-file-or-libtinfoso5)).
+Observed only inside a Docker container behind a TLS-inspecting corporate proxy; the same URLs worked from the WSL distribution.
+
+Fix (**untested**): ask your IT department for your organisation's root CA certificate, copy it to `/usr/local/share/ca-certificates/<name>.crt` and run `sudo update-ca-certificates`.
+Do not disable certificate verification (`wget --no-check-certificate`, `GIT_SSL_NO_VERIFY`): that removes the protection the download relies on.
+Workaround used in the test: clone or download on a machine that is not intercepted and copy the files in.
 
 ## `west flash` fails with `FATAL ERROR: command exited with status 1`
 
@@ -199,7 +225,7 @@ Warning: if the build is stale, `west flash` may rebuild as root and leave root-
 Ubuntu 24.04 dropped `libncurses5`. Only the MSDK's `arm-none-eabi-gdb` needs it (this entry is about the MSDK gdb, not about flashing).
 Zephyr's own gdb (`arm-zephyr-eabi-gdb`) does not, so you can skip this if you do not use MSDK gdb.
 
-The fix is to install the Ubuntu 22.04 packages (**untested**, needs `sudo`):
+The fix is to install the Ubuntu 22.04 packages (needs `sudo`; verified in a clean Ubuntu 24.04 container, where the `.deb` files were downloaded on the host because of a proxy, see the [proxy entry](#server-certificate-verification-failed-behind-a-corporate-proxy)):
 
 ```bash
 cd "$(mktemp -d)"

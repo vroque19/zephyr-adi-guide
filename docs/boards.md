@@ -30,7 +30,7 @@ A cell says `connected` when OpenOCD printed `Examination succeed` or a target t
 
 | OpenOCD | `max78000.cfg` | `max32690.cfg` |
 | --- | --- | --- |
-| ADI fork, tag `0.12.0-1.4.0` (the README's pinned build, temporary prefix) | connected (`Examination succeed`; an earlier build of the tag, see the [test log](test-log.md)) | not run |
+| ADI fork, tag `0.12.0-1.4.0` (the README's pinned build) | connected (`Examination succeed`; an earlier build of the tag, see the [test log](test-log.md)) | not run |
 | ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11) | connected | connected (config-only check; board is MAX78000-class) |
 | Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | `Can't find target/max78000.cfg` | connected (config-only check; board is MAX78000-class; target state `running`) |
 | MSDK (`Analog Devices 0.12.0-1.0.0-7`) | connected | connected (config-only check; board is MAX78000-class) |
@@ -42,7 +42,7 @@ What this shows and does not show:
 - The fork builds printed target state `unknown` while the SDK and MSDK printed `running`; this was not investigated.
 - Zephyr SDK 1.0.1's OpenOCD fails on `max78000.cfg` with the board attached, exactly as without one: the file is missing.
 - `allow_low_pwr_dbg` (checked host-only, after loading the cfg, without `init`): present in the fork build and Zephyr SDK 1.0.1, absent in the MSDK.
-- The probes above themselves wrote nothing. Afterwards the same board was flashed: only the pinned fork (temporary prefix) and the MSDK script flashed it; the `/usr/local` fork build was
+- The probes above themselves wrote nothing. Afterwards the same board was flashed: only the pinned fork and the MSDK script flashed it; the `/usr/local` fork build was
   not used for flashing, and Zephyr SDK 1.0.1 could not flash a MAX78000 (missing cfg). Flashing the other boards stays **untested**.
 
 ### OpenOCD target file coverage
