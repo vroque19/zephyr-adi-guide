@@ -49,6 +49,18 @@ The devicetree speed `current-speed = <115200>` was read from `boards/adi/max780
 `west flash` for the APARD32690 and for a MAX78000 board with the SDK's OpenOCD and with the `/usr/local` fork; `scripts/flash-adi-fork.sh` against a stand-in `west`;
 `scripts/flash-msdk.sh` with a dummy hex file. They stopped at `unable to find a matching CMSIS-DAP device` or `Can't find target/<chip>.cfg`, as described in [troubleshooting](troubleshooting.md).
 
+## Clean container test (Ubuntu 24.04)
+
+A fresh Ubuntu 24.04 container with only `python3`, `curl`, `wget` and `ca-certificates` preinstalled, passwordless `sudo` and a user in the usual WSL groups.
+The repository's published files were exported into it with `git archive`. This is not a real WSL install and has no board. What was run so far:
+
+- The host packages from [Prerequisites](../README.md#1-host-packages) (`sudo apt update && sudo apt install ...`): exit 0 (CMake 3.28.3, Python 3.12.3, DTC 1.7.0). This ran in a clean container.
+- `west init` and `west update` of v4.5.0: worked on the second attempt (the first attempt hit a network DNS failure, unrelated to the guide).
+- `west zephyr-export` before `west packages pip --install`: **failed** with `ModuleNotFoundError: No module named 'jsonschema'`, then `AttributeError: 'NoneType' object has no attribute 'err'`.
+  This was a bug in the guide's order; it is fixed (the README now installs the Python packages first). It had gone unnoticed because the packages were already installed on the first test machine.
+- With the corrected order (`west packages pip --install`, `west zephyr-export`), `west sdk install --gnu-toolchains arm-zephyr-eabi` and
+  `west build -p always -b max78000fthr/max78000/m4 samples/hello_world` all exited 0: flash 18540 B, RAM 4712 B, `zephyr.hex` 52263 B, the same as the host build.
+
 ## Not run
 
 Other boards (APARD32690, MAX78000EVKIT, MAX32655EVKIT, and every `max32690` or `max32655` flash), `sudo` installs (host packages, `/usr/local` OpenOCD, `/etc/udev/rules.d` changes), the `west config build.cmake-args` route,

@@ -1,11 +1,20 @@
 # Troubleshooting
 
+- [`west zephyr-export` fails with `ModuleNotFoundError: No module named 'jsonschema'`](#west-zephyr-export-fails-with-modulenotfounderror-no-module-named-jsonschema)
 - [`west flash` fails with `FATAL ERROR: command exited with status 1`](#west-flash-fails-with-fatal-error-command-exited-with-status-1)
 - [`Can't find target/<chip>.cfg`](#cant-find-targetchipcfg)
 - [`Error: unable to find a matching CMSIS-DAP device`](#error-unable-to-find-a-matching-cmsis-dap-device)
 - [Access denied / permission error opening the probe](#access-denied--permission-error-opening-the-probe)
 - [`libncurses.so.5: cannot open shared object file`](#libncursesso5-cannot-open-shared-object-file-or-libtinfoso5)
 - [Is my OpenOCD new enough?](#is-my-openocd-new-enough)
+
+## `west zephyr-export` fails with `ModuleNotFoundError: No module named 'jsonschema'`
+
+Seen on a fresh Ubuntu 24.04 (clean container) when `west zephyr-export` ran before `west packages pip --install`. The traceback ends with
+`ModuleNotFoundError: No module named 'jsonschema'`, then west prints `AttributeError: 'NoneType' object has no attribute 'err'`. If you chain commands with `&&`, the first line scrolls away.
+The cause is that west loads Zephyr's extension commands, which import Python packages that are not installed yet.
+
+Fix: with the venv active, run `west packages pip --install`, then `west zephyr-export`.
 
 ## `west flash` fails with `FATAL ERROR: command exited with status 1`
 

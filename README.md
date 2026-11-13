@@ -26,7 +26,7 @@ What was run, where and when is in the [test log](docs/test-log.md).
 The short path. All steps are required, in order: step 4 builds the OpenOCD that step 5 uses.
 This is the path that was run on the MAX78000FTHR. For other boards, change `-b`: see [docs/boards.md](docs/boards.md).
 
-1. Get a debug probe if your board needs one (the MAX78000FTHR has one on board), then install the host packages: [Prerequisites](#prerequisites). **(untested: needs `sudo`)**
+1. Get a debug probe if your board needs one (the MAX78000FTHR has one on board), then install the host packages: [Prerequisites](#prerequisites). **(ran in a clean Ubuntu 24.04 container with `sudo`, not on a real WSL install)**
    Hardware: see [Hardware you need](#hardware-you-need).
 2. Set up Zephyr v4.5.0 and build `hello_world` for the MAX78000FTHR **(built)**:
 
@@ -34,7 +34,7 @@ This is the path that was run on the MAX78000FTHR. For other boards, change `-b`
    python3 -m venv ~/zephyrproject/.venv && source ~/zephyrproject/.venv/bin/activate
    pip install west
    west init --mr v4.5.0 ~/zephyrproject && cd ~/zephyrproject && west update
-   west zephyr-export && west packages pip --install
+   west packages pip --install && west zephyr-export
    cd zephyr && west sdk install --gnu-toolchains arm-zephyr-eabi
    west build -p always -b max78000fthr/max78000/m4 samples/hello_world
    ```
@@ -114,7 +114,7 @@ Something broke? See [Troubleshooting](#troubleshooting).
 | MSDK (alternative path only) | Install the current release from ADI. No version file is shipped |
 | MSDK toolchain / OpenOCD (alternative path only) | The MSDK tested had GNU Arm toolchain 10.3-2021.10 and OpenOCD "Analog Devices 0.12.0-1.0.0-7" |
 
-The venv, `west init`, `west update`, pip install, `west zephyr-export` and the build were run from scratch in a clean shell. The SDK install was run once (a real download, with no 1.0.x SDK present) and re-run later as a no-op.
+The venv, `west init`, `west update` and the build were run from scratch in a clean shell; the Python packages were already installed on that machine, which hid the order problem in step 3, found later in a [clean container](docs/test-log.md#clean-container-test-ubuntu-2404). The SDK install was run once (a real download, with no 1.0.x SDK present) and re-run later as a no-op.
 
 ## Which OpenOCD do I need?
 
@@ -154,7 +154,7 @@ dpkg -s git cmake ninja-build gperf ccache dfu-util device-tree-compiler wget \
 ```
 
 No output means you are set. (On Ubuntu 24.04 the package is named `libmagic1t64`, and the install list below uses that name too.)
-Otherwise install them (**untested**, needs `sudo`):
+Otherwise install them (needs `sudo`; ran in a clean Ubuntu 24.04 container, not on a real WSL install; see the [test log](docs/test-log.md#clean-container-test-ubuntu-2404)):
 
 ```bash
 sudo apt update
@@ -202,12 +202,16 @@ west update
 
 `west update` downloads a lot (the workspace was 9.3 GB on disk), so give it a few minutes.
 
-### 3. Export Zephyr and install Python dependencies
+### 3. Install Python dependencies, then export Zephyr
 
 ```bash
-west zephyr-export
 west packages pip --install
+west zephyr-export
 ```
+
+Keep this order, with the venv active. `west zephyr-export` loads Zephyr's own west commands, which import Python packages that `west packages pip --install` installs.
+On a fresh machine, running it first fails with `ModuleNotFoundError: No module named 'jsonschema'` (followed by a confusing `AttributeError: 'NoneType' object has no attribute 'err'`):
+see [troubleshooting](docs/troubleshooting.md#west-zephyr-export-fails-with-modulenotfounderror-no-module-named-jsonschema).
 
 ### 4. Install the Zephyr SDK
 
