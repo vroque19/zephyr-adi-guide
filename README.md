@@ -577,11 +577,10 @@ For other boards the last line is `Hello World! <board>`. Press Ctrl+C to stop `
 ### Optional helper scripts
 
 The `west flash` command above is the main path. This guide also ships two optional helper scripts: `scripts/flash-adi-fork.sh` (the same command, with a default prefix) and
-`scripts/flash-msdk.sh` (for the [MSDK alternative](docs/alternative-msdk.md)). Get them by cloning this repository.
-`<REPO_URL>` is this repository's clone URL (fill in the URL shown on the repository's page):
+`scripts/flash-msdk.sh` (for the [MSDK alternative](docs/alternative-msdk.md)). Get them by cloning this repository:
 
 ```bash
-git clone <REPO_URL> ~/zephyr-adi-guide
+git clone https://github.com/vroque19/zephyr-adi-guide.git ~/zephyr-adi-guide
 ```
 
 The scripts below use `GUIDE_DIR` for that directory:
