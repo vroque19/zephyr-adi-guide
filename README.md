@@ -30,14 +30,15 @@ This is the path that was run on the MAX78000FTHR. For other boards, change `-b`
 
 1. Get a debug probe if your board needs one (the MAX78000FTHR has one on board), then install the host packages: [Prerequisites](#prerequisites). **(ran in a clean Ubuntu 24.04 container, not on a real WSL install)**
    Hardware: see [Hardware you need](#hardware-you-need).
-2. Set up Zephyr v4.5.0 and build `hello_world` for the MAX78000FTHR **(built)**:
+2. Set up Zephyr exactly as the official guide does and build `hello_world` for the MAX78000FTHR
+   **(built with `--mr v4.5.0` pinned and an ARM-only SDK; the official commands below were not run as written, see [Zephyr setup](#zephyr-setup))**:
 
    ```bash
    python3 -m venv ~/zephyrproject/.venv && source ~/zephyrproject/.venv/bin/activate
    pip install west
-   west init --mr v4.5.0 ~/zephyrproject && cd ~/zephyrproject && west update
+   west init -m https://github.com/zephyrproject-rtos/zephyr ~/zephyrproject && cd ~/zephyrproject && west update
    west packages pip --install && west zephyr-export
-   cd zephyr && west sdk install --gnu-toolchains arm-zephyr-eabi
+   cd zephyr && west sdk install
    west build -p always -b max78000fthr/max78000/m4 samples/hello_world
    ```
 
@@ -179,7 +180,10 @@ dtc --version
 
 ## Zephyr setup
 
-These are the official steps, with one choice made for you: Zephyr is pinned to v4.5.0.
+These are the official steps, unchanged.
+Everything here was run with Zephyr pinned to v4.5.0 and an ARM-only SDK (the two optional tips below), which are not in the official guide.
+The unpinned commands as written below were **not** run here, so if one differs on a newer Zephyr, trust the
+[official page](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) and tell us.
 In this guide and in the other pages, `<ZEPHYR_DIR>` means `~/zephyrproject/zephyr`.
 
 Disk space: the Zephyr workspace was 9.3 GB here, plus the virtual environment, SDK and builds. Check free space first with `df -h ~`.
@@ -197,10 +201,12 @@ Run the `source` line again in every new terminal.
 ### 2. Get the Zephyr source
 
 ```bash
-west init --mr v4.5.0 ~/zephyrproject
+west init -m https://github.com/zephyrproject-rtos/zephyr ~/zephyrproject
 cd ~/zephyrproject
 west update
 ```
+
+Optional: to get exactly the release this guide was run with, use `west init --mr v4.5.0 ~/zephyrproject` instead.
 
 `west update` downloads a lot (the workspace was 9.3 GB on disk), so give it a few minutes.
 
@@ -217,17 +223,15 @@ see [troubleshooting](docs/troubleshooting.md#west-zephyr-export-fails-with-modu
 
 ### 4. Install the Zephyr SDK
 
-Zephyr v4.5.0 needs Zephyr SDK 1.0 or newer (its `cmake/modules/FindHostTools.cmake`
-asks for `Zephyr-sdk 1.0`, and `SDK_VERSION` says 1.0.1). Older SDKs such as 0.17.x
-fail at the CMake step with `Could not find a configuration file for package "Zephyr-sdk"`.
-
-Install only the ARM toolchain, which is enough for most ADI Cortex-M parts
-(about 250 MB instead of several GB):
+`west sdk install` picks the SDK version your Zephyr checkout needs (v4.5.0 needs SDK 1.0 or newer; older 0.17.x SDKs fail at the CMake step with `Could not find a configuration file for package "Zephyr-sdk"`).
 
 ```bash
 cd ~/zephyrproject/zephyr
-west sdk install --gnu-toolchains arm-zephyr-eabi
+west sdk install
 ```
+
+Optional: this downloads toolchains for every architecture (several GB). For most ADI Cortex-M parts the ARM toolchain is enough (about 250 MB):
+`west sdk install --gnu-toolchains arm-zephyr-eabi`. This is what was run here.
 
 By default it installs into `~/zephyr-sdk-<version>`, here `~/zephyr-sdk-1.0.1` (seen when run here; `-b` and `-d` change this, see `west sdk install -h`).
 Nothing else needs to be set up: the build finds the SDK on its own.
