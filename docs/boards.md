@@ -1,109 +1,51 @@
 # Using a different board
 
-The [main guide](../README.md) uses the MAX78000FTHR (the only board flashed). To use another ADI board you change the Zephyr board name:  `(west build -b) <BOARD>`. 
+Change the Zephyr board name in `west build -b <board>`. `west flash` works out the OpenOCD target file from the board itself.
+Only the [MSDK script](alternative-msdk.md) needs a `TARGET` value (the target file name without `.cfg`).
 
-Note: The MSDK script  [`scripts/flash-msdk.sh`](alternative-msdk.md) a `TARGET` value.
-For the ADI fork path you only change the board name: the runner (the part of `west flash` that drives OpenOCD) derives the target file from the Zephyr board itself (see below).
-note: Useful if this environment variable is set: `OPENOCD_PREFIX="$HOME/.local"`
+## Boards flashed so far
 
-| Zephyr board name | OpenOCD target cfg (config file) | Built | Flashed on hardware |
-| --- | --- | --- | --- |
-| `apard32690/max32690/m4` | `max32690` | yes (`samples/hello_world`, Zephyr v4.5.0; `samples/basic/blinky`, per a user report) | yes: plain `west flash` (the Zephyr SDK's OpenOCD) wrote the board and `blinky` ran and printed over serial.  |
-| `max78000fthr/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | yes (**flashed** with the pinned fork `west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts/" `, confirmed running over serial|
-
-
-| OpenOCD | `max78000.cfg` | `max32690.cfg` |
+| Zephyr board name | OpenOCD target | How it was flashed |
 | --- | --- | --- |
-| ADI fork, tag `0.12.0-1.4.0` (the README's pinned build) | connected (`Examination succeed`; an earlier build of the tag, see the [test log](test-log.md)) | not run |
-| ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11) | connected | connected (config-only check; board is MAX78000-class) |
-| Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | `Can't find target/max78000.cfg` | connected (config-only check; board is MAX78000-class; target state `running`) |
-| MSDK (`Analog Devices 0.12.0-1.0.0-7`) | connected | connected (config-only check; board is MAX78000-class) |
+| `max78000fthr/max78000/m4` | `max78000` | The ADI fork with `west flash --openocd ...` (maintainer). The MSDK script also worked. |
+| `apard32690/max32690/m4` | `max32690` | Plain `west flash`, using the Zephyr SDK's OpenOCD (user report). The ADI fork at `0.12.0-1.4.0` failed: [troubleshooting](troubleshooting.md#invalid-command-name-init_qspi-on-the-max32690-adi-fork-0120-140). |
 
-### OpenOCD target file coverage
+Other ADI boards should work the same way but have not been flashed.
 
-Which `target/<chip>.cfg` each OpenOCD has. Ran on one machine without a board, with
-`openocd -s <scripts> -c 'puts [find target/<chip>.cfg]' -c shutdown` (Y = found, N = `Can't find target/<chip>.cfg`).
-The fork column was measured on a fork build installed in `/usr/local` on the test machine, not necessarily tag `0.12.0-1.4.0` from the README.
+## Which OpenOCD has your chip?
 
-| Target cfg | MSDK (`Analog Devices 0.12.0-1.0.0-7`, 2023-09-27) | ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11, no tag in its version string) | Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | Zephyr SDK 0.17.4 (`0.12.0-01018-gb89d626c6`) |
+Y means the OpenOCD has `target/<chip>.cfg`, N means `Can't find target/<chip>.cfg`.
+
+| Target | MSDK | ADI fork | Zephyr SDK 1.0.1 | Zephyr SDK 0.17.4 |
 | --- | --- | --- | --- | --- |
 | `max32620`, `max32625` | Y | Y | Y | Y |
-| `max32650` | Y | Y | N | N |
-| `max32655` | Y | Y | N | N |
+| `max32650`, `max32655`, `max32665` | Y | Y | N | N |
 | `max32657`, `max32658` | N | Y | N | N |
 | `max32660`, `max32662`, `max32670`, `max32672`, `max32675`, `max32680` | Y | Y | Y | N |
-| `max32665` | Y | Y | N | N |
 | `max32690` | Y | Y | Y | N |
-| `max78000` | Y | Y | N | N |
-| `max78002` | Y | Y | N | N |
+| `max78000`, `max78002` | Y | Y | N | N |
 
-No `max32666.cfg` exists in any of them (Zephyr maps MAX32666 boards to `max32665.cfg`, MAX32651 to `max32650.cfg`).
-Zephyr SDK 1.0.1 has only the `max32620`, `max32625`, `max3263x`, `max32660`, `max32662`, `max32670`, `max32672`, `max32675`,
-`max32680` and `max32690` files (plus `max32xxx_common.cfg`).
+If your SDK has your chip (Y), plain `west flash` can work. If not, build [ADI's fork](../README.md#5-build-adis-openocd).
+Zephyr maps `MAX32651` boards to `max32650.cfg` and `MAX32666` boards to `max32665.cfg`.
 
-So for boards whose file your SDK's OpenOCD lacks (`max32650`, `max32655`, `max32657`, `max32658`, `max32665`, `max78000`, `max78002`; those checks ran without a board)
-`west flash` with that OpenOCD cannot load the target (the same kind of failure as in [Troubleshooting](troubleshooting.md); to confirm your case, read the log). Use the [ADI fork](../README.md#build-adi-openocd)
-or the [MSDK alternative](alternative-msdk.md) (the MSDK also lacks `max32657` and `max32658`: the fork only). For the `max32690` family with SDK 1.0.1 the file and the
-`allow_low_pwr_dbg` command are both present, so the need for the fork was not shown (**untested with a board**).
-Which Zephyr boards need which cfg (from the `select SOC_...` lines in `<ZEPHYR_DIR>/boards/adi/*/Kconfig.*` and the shared
-`openocd-adi-max32.boards.cmake`) is in the
-[affected boards table](troubleshooting.md#west-flash-fails-with-fatal-error-command-exited-with-status-1).
+## Find the right values for a board
 
-The MSDK's OpenOCD has two script trees, `Tools/OpenOCD/scripts` and `Tools/OpenOCD/share/openocd/scripts`. By `ls`, `max32620`,
-`max32625` and `max3263x` exist only in the second (and `find` resolves them); the other MSDK cfgs in the matrix (`max32650`, `max32655`,
-`max32660`, `max32665`, `max32670`, `max32672`, `max32675`, `max32680`, `max32690`, `max78000`, `max78002`) are in both. `max32657`
-and `max32658` are in neither. `scripts/flash-msdk.sh` passes `-s Tools/OpenOCD/scripts`, but OpenOCD also keeps its built-in search path (`bin/../share/openocd/scripts`),
-so `find target/max32620.cfg`, `max32625.cfg` and `max3263x.cfg` still resolve to the second tree when run that way (ran without a board). Only a plain
-`ls .../scripts/target` under-lists the usable names. The script's own existence check accepts a target (or interface) found in either tree, so `TARGET=max32625` reaches OpenOCD
-(ran with a dummy hex file: it ends at `unable to find a matching CMSIS-DAP device`).
-
-## How the values are picked
-
-Build for the other board by changing the board name (list them with
-`west boards --format "{name}"`; a board with several cores shows them as `<board>/<soc>/<core>`):
+List the boards and build:
 
 ```bash
 cd ~/zephyrproject/zephyr
 west boards --format "{name} {qualifiers}" | grep -i max78000
-west build -p always -b max78000evkit/max78000/m4 samples/hello_world -d build
+west build -p always -b max78000evkit/max78000/m4 samples/hello_world
 ```
 
-For `west flash`, the board directory under `<ZEPHYR_DIR>/boards/adi/<board>/` has a `board.cmake` (Zephyr's per-board flash settings).
-The APARD32690's `board.cmake` contains:
+The target file is normally the SoC name plus `.cfg`. To see what `west flash` will ask for, read
+`<ZEPHYR_DIR>/boards/adi/<board>/board.cmake` and `<ZEPHYR_DIR>/boards/common/openocd-adi-max32.boards.cmake`
+(`<ZEPHYR_DIR>` is `~/zephyrproject/zephyr`). Then check that your OpenOCD has the file:
 
-```cmake
-set(MAX32_TARGET_CFG "${CONFIG_SOC}.cfg")
-set(MAX32_INTERFACE_CFG "cmsis-dap.cfg")
-include(${ZEPHYR_BASE}/boards/common/openocd-adi-max32.boards.cmake)
+```bash
+openocd -s <scripts-dir> -c 'puts [find target/<chip>.cfg]' -c shutdown
 ```
 
-and `max78000evkit`'s only includes `openocd-adi-max32.boards.cmake`, which defaults to
-`${CONFIG_SOC}.cfg` and `cmsis-dap.cfg`. In other words the OpenOCD target file is the SoC name
-(`max32690`, `max78000`) with `.cfg`, with a few exceptions written in that shared file (for example
-`MAX32651` uses `max32650.cfg` and `MAX32666` uses `max32665.cfg`). That file also adds
-`allow_low_pwr_dbg` to the OpenOCD command line for most Cortex-M MAX32 parts, which is why
-OpenOCD must know that command ([Troubleshooting](troubleshooting.md)).
+The shared board file also sends `allow_low_pwr_dbg` to OpenOCD, which the MSDK's OpenOCD does not know. That is why the MSDK needs [its own flash script](alternative-msdk.md).
 
-## A board that is not in the table
-
-1. Find the board: `west boards --format "{name} {qualifiers}" | grep -i <name>`.
-2. Read `<ZEPHYR_DIR>/boards/adi/<board>/board.cmake` and `<ZEPHYR_DIR>/boards/common/openocd-adi-max32.boards.cmake`
-   to see which target file `west flash` will ask for.
-3. Check that your OpenOCD has it (replace `<scripts>` with its scripts directory):
-
-   ```bash
-   openocd -s <scripts> -c 'puts [find target/<chip>.cfg]' -c shutdown
-   ```
-
-4. For the MSDK script, list the OpenOCD target names of each tree:
-
-   ```bash
-   ls -1 ~/MaximSDK/Tools/OpenOCD/scripts/target | grep '^max.*\.cfg$'
-   ls -1 ~/MaximSDK/Tools/OpenOCD/share/openocd/scripts/target | grep '^max.*\.cfg$'
-   ```
-
-   Or ask OpenOCD directly: `~/MaximSDK/Tools/OpenOCD/bin/openocd -c 'puts [find target/<chip>.cfg]' -c shutdown`.
-   The script accepts names from either tree (see above).
-
-Boards with a RISC-V core (for example `max78000fthr/max78000/rv32`) use a different debug interface in that
-file; they were not built or run here.
+Boards with a RISC-V core (for example `max78000fthr/max78000/rv32`) use a different debug setup and were not tried.
