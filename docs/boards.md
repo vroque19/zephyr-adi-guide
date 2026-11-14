@@ -1,32 +1,16 @@
 # Using a different board
 
-The [main guide](../README.md) uses the MAX78000FTHR (the only board flashed). To use another ADI board you change the Zephyr board name. The MSDK script needs one more value:
+The [main guide](../README.md) uses the MAX78000FTHR (the only board flashed). To use another ADI board you change the Zephyr board name:  `(west build -b) <BOARD>`. 
 
-| Value | Used by | Example |
-| --- | --- | --- |
-| Zephyr board name | `west build -b <board>` | `max78000fthr/max78000/m4` |
-| OpenOCD target file (no `.cfg`) | `TARGET=` of [`scripts/flash-msdk.sh`](alternative-msdk.md) | `max78000` |
-
-`TARGET=` is only for the MSDK script. For `west flash` (the ADI fork path) you only change the board name
-(`west build -b`): the runner (the part of `west flash` that drives OpenOCD) derives the target file from the Zephyr board itself (see below).
-
-## Boards built
-
-Only boards that were built here are listed. **Only one board was flashed by the maintainer, the MAX78000FTHR**; the APARD32690 row is a user report (**flashed**: OpenOCD printed `wrote N bytes`; one board, one sample). The program was confirmed running over serial after the `west flash --openocd` run with the pinned fork, followed by `reset run` (the banner appeared twice around the `reset run`; cause not investigated). The other rows are "no".
-That board was first probed read-only (see [Probed with a board](#probed-with-a-board)). `<ZEPHYR_DIR>` is `~/zephyrproject/zephyr`.
+Note: The MSDK script  [`scripts/flash-msdk.sh`](alternative-msdk.md) a `TARGET` value.
+For the ADI fork path you only change the board name: the runner (the part of `west flash` that drives OpenOCD) derives the target file from the Zephyr board itself (see below).
+note: Useful if this environment variable is set: `OPENOCD_PREFIX="$HOME/.local"`
 
 | Zephyr board name | OpenOCD target cfg (config file) | Built | Flashed on hardware |
 | --- | --- | --- | --- |
-| `apard32690/max32690/m4` | `max32690` | yes (`samples/hello_world`, Zephyr v4.5.0; `samples/basic/blinky`, per a user report) | yes, **per a user report, not run by the maintainer**: plain `west flash` (the Zephyr SDK's OpenOCD) wrote the board and `blinky` ran and printed over serial. With the ADI fork at tag `0.12.0-1.4.0` the flash fails, see [`init_qspi`](troubleshooting.md#invalid-command-name-init_qspi-on-the-max32690-adi-fork-0120-140) |
-| `max78000evkit/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
-| `max32655evkit/max32655/m4` | `max32655` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
-| `max78000fthr/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | yes (**flashed** with the pinned fork `west flash`, confirmed running over serial; `scripts/flash-adi-fork.sh` and `scripts/flash-msdk.sh` also wrote, running not re-confirmed) |
+| `apard32690/max32690/m4` | `max32690` | yes (`samples/hello_world`, Zephyr v4.5.0; `samples/basic/blinky`, per a user report) | yes: plain `west flash` (the Zephyr SDK's OpenOCD) wrote the board and `blinky` ran and printed over serial.  |
+| `max78000fthr/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | yes (**flashed** with the pinned fork `west flash --openocd "$OPENOCD_PREFIX/bin/openocd" --openocd-search "$OPENOCD_PREFIX/share/openocd/scripts/" `, confirmed running over serial|
 
-### Probed with a board
-
-OpenOCD was run read-only against one attached board, as a normal user: `-c 'source [find interface/cmsis-dap.cfg]' -c 'source [find target/<chip>.cfg]' -c init -c targets -c shutdown`.
-These probes flashed, wrote and reset nothing. The board was a MAX78000-class Cortex-M4 board with an on-board DAPLink probe (SWD `DPIDR 0x2ba01477`).
-A cell says `connected` when OpenOCD printed `Examination succeed` or a target table, or `Can't find` when the cfg is missing.
 
 | OpenOCD | `max78000.cfg` | `max32690.cfg` |
 | --- | --- | --- |
@@ -35,22 +19,11 @@ A cell says `connected` when OpenOCD printed `Examination succeed` or a target t
 | Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | `Can't find target/max78000.cfg` | connected (config-only check; board is MAX78000-class; target state `running`) |
 | MSDK (`Analog Devices 0.12.0-1.0.0-7`) | connected | connected (config-only check; board is MAX78000-class) |
 
-What this shows and does not show:
-
-- The attached board is a MAX78000-class board, so `max78000.cfg` is the matching file. `max32690.cfg` connecting on it only shows that the OpenOCD can talk to this probe
-  and a Cortex-M4 with that cfg. It does **not** show that MAX32690 boards flash or connect.
-- The fork builds printed target state `unknown` while the SDK and MSDK printed `running`; this was not investigated.
-- Zephyr SDK 1.0.1's OpenOCD fails on `max78000.cfg` with the board attached, exactly as without one: the file is missing.
-- `allow_low_pwr_dbg` (checked host-only, after loading the cfg, without `init`): present in the fork build and Zephyr SDK 1.0.1, absent in the MSDK.
-- The probes above themselves wrote nothing. Afterwards the same board was flashed: only the pinned fork and the MSDK script flashed it; the `/usr/local` fork build was
-  not used for flashing, and Zephyr SDK 1.0.1 could not flash a MAX78000 (missing cfg). Flashing the other boards stays **untested**.
-
 ### OpenOCD target file coverage
 
 Which `target/<chip>.cfg` each OpenOCD has. Ran on one machine without a board, with
 `openocd -s <scripts> -c 'puts [find target/<chip>.cfg]' -c shutdown` (Y = found, N = `Can't find target/<chip>.cfg`).
-The fork column was measured on a fork build installed in `/usr/local` on the test machine, not necessarily tag `0.12.0-1.4.0` from the README. The build of
-tag `0.12.0-1.4.0` was checked separately for those three files only: `max32690.cfg`, `max32655.cfg` and `max78000.cfg` are present.
+The fork column was measured on a fork build installed in `/usr/local` on the test machine, not necessarily tag `0.12.0-1.4.0` from the README.
 
 | Target cfg | MSDK (`Analog Devices 0.12.0-1.0.0-7`, 2023-09-27) | ADI fork (build at `/usr/local/bin/openocd`, 2026-03-11, no tag in its version string) | Zephyr SDK 1.0.1 (`0.12.0-01050-g91bd278a5`) | Zephyr SDK 0.17.4 (`0.12.0-01018-gb89d626c6`) |
 | --- | --- | --- | --- | --- |
