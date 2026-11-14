@@ -4,6 +4,8 @@
 - [Serial output is garbage](#serial-output-is-garbage)
 - [`server certificate verification failed` behind a corporate proxy](#server-certificate-verification-failed-behind-a-corporate-proxy)
 - [`west flash` fails with `FATAL ERROR: command exited with status 1`](#west-flash-fails-with-fatal-error-command-exited-with-status-1)
+- [`invalid command name "init_qspi"` on the MAX32690 (ADI fork 0.12.0-1.4.0)](#invalid-command-name-init_qspi-on-the-max32690-adi-fork-0120-140)
+- [Flash says `wrote N bytes` but nothing runs](#flash-says-wrote-n-bytes-but-nothing-runs)
 - [`Can't find target/<chip>.cfg`](#cant-find-targetchipcfg)
 - [`Error: unable to find a matching CMSIS-DAP device`](#error-unable-to-find-a-matching-cmsis-dap-device)
 - [Access denied / permission error opening the probe](#access-denied--permission-error-opening-the-probe)
@@ -278,3 +280,32 @@ the fork; try it with your board attached and report what happens. Zephyr's own 
 which target file and commands it needs, and
 `<ZEPHYR_DIR>/boards/common/openocd-adi-max32.boards.cmake` is where they are set.
 Passing both checks only shows that the file and command exist, not that flashing works (**untested with a board**).
+
+## `invalid command name "init_qspi"` on the MAX32690 (ADI fork 0.12.0-1.4.0)
+
+Reported on an APARD32690 flashed with `west flash --openocd "$OPENOCD_PREFIX/bin/openocd" ...` (the fork built at tag `0.12.0-1.4.0`). `reset init` fails and the flash does not happen:
+
+```text
+Error: [max32xxx.cpu] Execution of event reset-deassert-post failed:
+.../target/max32690.cfg:177: Error: invalid command name "init_qspi"
+```
+
+Likely cause (read from the config; not reproduced on a MAX32690 here): in that tag `proc init_qspi` is defined only when `MAX32_QSPI_ENABLE` is 1, which is the default off, but the two event handlers that call `init_qspi` (lines 167 and 177) are outside that `if`. Tag `0.12.0-1.3.1` has the calls inside it.
+
+Easiest fix for a MAX32690: **plain `west flash`**. The Zephyr SDK 1.0.1 OpenOCD has `max32690.cfg` without this problem, and plain `west flash` wrote an APARD32690 in a user report.
+Use the fork only for boards the SDK lacks (see the [coverage matrix](boards.md#openocd-target-file-coverage)).
+
+A user guarded the two `init_qspi` calls with `if {$_QSPI_ENABLE == 1} { ... }` in the installed `max32690.cfg`, and **that did not fix the flash**, so no workaround for the fork is documented here.
+The cause is read from the config and not reproduced on a MAX32690 here, so it may be incomplete.
+Use plain `west flash` for this board, or check whether a newer ADI fork release fixes it (see [Is my OpenOCD new enough?](#is-my-openocd-new-enough)).
+
+## Flash says `wrote N bytes` but nothing runs
+
+Check you built for the board you flashed. A hex built for a different board writes fine and then shows nothing. In one report the build was for a MAX78000EVKIT while the board was an APARD32690, so the LED stayed off and the console was silent. Rebuild with the right name:
+
+```bash
+west build -p always -b apard32690/max32690/m4 samples/basic/blinky
+west flash
+```
+
+`west boards --format "{name}" | grep -i <chip>` lists the names. Blinky drives `led0`, which on the APARD32690 is the blue LED (LED1), and prints `LED state: ON/OFF` on the serial console.

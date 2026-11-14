@@ -12,12 +12,12 @@ The [main guide](../README.md) uses the MAX78000FTHR (the only board flashed). T
 
 ## Boards built
 
-Only boards that were built here are listed. **Only one board was flashed, the MAX78000FTHR** (**flashed**: OpenOCD printed `wrote N bytes`; one board, one sample). The program was confirmed running over serial after the `west flash --openocd` run with the pinned fork, followed by `reset run` (the banner appeared twice around the `reset run`; cause not investigated). The other rows are "no".
+Only boards that were built here are listed. **Only one board was flashed by the maintainer, the MAX78000FTHR**; the APARD32690 row is a user report (**flashed**: OpenOCD printed `wrote N bytes`; one board, one sample). The program was confirmed running over serial after the `west flash --openocd` run with the pinned fork, followed by `reset run` (the banner appeared twice around the `reset run`; cause not investigated). The other rows are "no".
 That board was first probed read-only (see [Probed with a board](#probed-with-a-board)). `<ZEPHYR_DIR>` is `~/zephyrproject/zephyr`.
 
 | Zephyr board name | OpenOCD target cfg (config file) | Built | Flashed on hardware |
 | --- | --- | --- | --- |
-| `apard32690/max32690/m4` | `max32690` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
+| `apard32690/max32690/m4` | `max32690` | yes (`samples/hello_world`, Zephyr v4.5.0; `samples/basic/blinky`, per a user report) | yes, **per a user report, not run by the maintainer**: plain `west flash` (the Zephyr SDK's OpenOCD) wrote the board and `blinky` ran and printed over serial. With the ADI fork at tag `0.12.0-1.4.0` the flash fails, see [`init_qspi`](troubleshooting.md#invalid-command-name-init_qspi-on-the-max32690-adi-fork-0120-140) |
 | `max78000evkit/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
 | `max32655evkit/max32655/m4` | `max32655` | yes (`samples/hello_world`, Zephyr v4.5.0) | no (**untested**) |
 | `max78000fthr/max78000/m4` | `max78000` | yes (`samples/hello_world`, Zephyr v4.5.0) | yes (**flashed** with the pinned fork `west flash`, confirmed running over serial; `scripts/flash-adi-fork.sh` and `scripts/flash-msdk.sh` also wrote, running not re-confirmed) |
