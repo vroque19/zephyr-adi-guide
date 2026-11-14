@@ -7,21 +7,7 @@ It follows the official
 [Zephyr Getting Started](https://docs.zephyrproject.org/latest/develop/getting_started/index.html)
 and adds the parts it leaves out for ADI boards: sharing the USB debugger with WSL and flashing with OpenOCD.
 It assumes you already have WSL with Ubuntu. Installing WSL is out of scope.
-The examples use the MAX78000FTHR, the only board verified here. For other boards, change the board name: see [docs/boards.md](docs/boards.md).
-
-**Status:** checked on one board, a MAX78000FTHR, with `samples/hello_world`. `west flash --openocd` with the pinned ADI OpenOCD fork, built and installed to `$HOME/.local` as in the Quick start,
-wrote the program (**flashed**), and the program printed over serial after an explicit `reset run`. Both helper scripts also wrote it, and so did a `sudo make install` build in `/usr/local`.
-Most of this ran in a clean Ubuntu 24.04 Docker container with the board passed through from a WSL2 host, so a real WSL install may differ (systemd/udev, default packages).
-Everything else is **untested** unless marked otherwise.
-What was run, where and when is in the [test log](docs/test-log.md).
-
-| Status word | Meaning |
-| --- | --- |
-| **built** | A build succeeded here. |
-| **ran without a board** | OpenOCD ran here with nothing attached. |
-| **probed with a board** | Checked read-only with a board attached (OpenOCD `init` and `targets` only, or `lsusb`/`usbipd`/udev lookups). Nothing was flashed or reset. |
-| **flashed** | A flash write to a board succeeded (OpenOCD printed `wrote N bytes`). "Confirmed running" means the board then printed `hello_world` over serial; that was observed only after the `west flash --openocd` run with the pinned fork, followed by `reset run`. |
-| **untested** | Needs a board, `sudo` or an Administrator shell, and was not run. |
+The examples use the MAX78000FTHR. For other boards, change the board name: see [docs/boards.md](docs/boards.md).
 
 ## Quick start
 
